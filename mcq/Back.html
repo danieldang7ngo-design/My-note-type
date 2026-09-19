@@ -1,0 +1,77 @@
+<link rel="stylesheet" href="_mcq_styles.css">
+
+<!-- Nút Cài đặt & Menu -->
+<button type="button" id="btnSettings" class="btn-settings" onclick="AnkiEngine.toggleSettings(event)" aria-label="Settings">
+    <div class="settings-cross"></div>
+</button>
+<div id="settingsMenu" class="settings-menu"></div>
+
+<!-- Raw field data for the JS engine (Safe HTML extraction). The answer divs
+     are ALSO the progressive-enhancement safety backdoor: _mcq_logic.js adds
+     html.mcq-ready as soon as the interactive grid has rendered, and
+     _mcq_styles.css shows these static divs whenever that marker is missing —
+     a card can never be stuck with no options, even if the scripts fail. -->
+<div id="mcq-question-raw">{{Question}}</div>
+
+<div class="card-wrapper">
+    <div class="aurora-card card-back">
+        <div class="card-content">
+            
+            <!-- QUESTION CUE CARD -->
+            <div class="cue-card glass-pseudo cue-card--meaning">
+                <div class="prompt-label">CÂU HỎI</div>
+                <div class="meaning-row">
+                    {{#Question}}<span class="prompt-content">{{Question}}</span>{{/Question}}
+                    {{#Audio_Question}}<span class="sound" style="display: inline-flex; margin-left: 6px;">{{Audio_Question}}</span>{{/Audio_Question}}
+                </div>
+            </div>
+
+            <!-- MCQ AREA: verdict, four answer states, then optional explanation. -->
+            <div class="mcq-area">
+                <div id="mcq-verdict-container" class="mcq-verdict-container">
+                    <!-- Javascript will inject the verdict banner here -->
+                </div>
+
+                <div id="mcq-options-container" class="mcq-option-grid">
+                    <!-- Javascript will inject the result buttons here -->
+                </div>
+            
+            {{#Explanation}}
+            <details class="expand-container">
+                <summary class="expand-trigger">
+                    <span>GIẢI THÍCH CHI TIẾT</span>
+                    <span class="expand-chevron"></span>
+                </summary>
+                <div class="expand-content glass-pseudo"><div class="giaithich">{{Explanation}}</div></div>
+            </details>
+            {{/Explanation}}
+            </div>
+
+            <!-- Footer Toolbar -->
+            <div class="footer-toolbar">
+                <div class="card-tags glass-pseudo">
+                    {{#Tags_Custom}}<span class="tag-badge" title="{{Tags_Custom}}">{{Tags_Custom}}</span>{{/Tags_Custom}}
+                    {{#ID}}<span class="tag-badge id-badge" title="{{ID}}">ID: {{ID}}</span>{{/ID}}
+                </div>
+                <div class="stats-footer">HNA MCQ • ID {{ID}}</div>
+            </div>
+        </div>
+
+        <div id="mcq-raw-data">
+            <div class="mcq-raw-ans" data-correct="false">{{Distraction-1}}</div>
+            <div class="mcq-raw-ans" data-correct="false">{{Distraction-2}}</div>
+            <div class="mcq-raw-ans" data-correct="false">{{Distraction-3}}</div>
+            <div class="mcq-raw-ans" data-correct="true">{{Correct-answer}}</div>
+        </div>
+    </div>
+</div>
+
+<script src="_mcq_storage.js"></script>
+<script src="_mcq_engine.js"></script>
+<script src="_mcq_logic.js"></script>
+<script src="_mcq_aurora.js"></script>
+<script>
+(function() {
+    AnkiMCQ.initBack();
+})();
+</script>

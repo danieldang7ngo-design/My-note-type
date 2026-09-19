@@ -1,0 +1,56 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "Omniroute": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Omniroute",
+      "options": {
+        "baseURL": "http://localhost:20128/v1",
+        "apiKey": "sk-3ceab7a215abdb86-bb3afc-3d657b1d"
+      },
+      "models": {
+        "agentrouter/claude-opus-4-8": {},
+        "agentrouter/gpt-5.6-sol": {},
+        "agentrouter/claude-opus-5": {},
+        "auto/best-coding": {},
+        "auto/best-reasoning": {},
+        "auto/best-fast": {},
+        "auto/best-vision": {},
+        "auto/best-chat": {},
+        "auto/best-coding-fast": {},
+        "auto/pro-coding": {},
+        "auto/pro-reasoning": {},
+        "auto/pro-vision": {},
+        "auto/pro-chat": {},
+        "auto/pro-fast": {},
+        "auto/coding": {},
+        "auto/fast": {},
+        "auto/chat": {},
+        "auto/claude-opus": {},
+        "auto/claude-sonnet": {},
+        "auto/best-free": {}
+      }
+    }
+  },
+  "permission": {
+    "bash": {
+      "*": "allow",
+      "*D:*": "deny",
+      "*d:*": "deny",
+      "*D$*": "deny",
+      "*d$*": "deny"
+    },
+    "edit": "allow",
+    "read": "allow",
+    "webfetch": "allow",
+    "external_directory": {
+      "*": "allow",
+      "D:\\*": "deny",
+      "D:/*": "deny",
+      "D:": "deny",
+      "d:\\*": "deny",
+      "d:/*": "deny",
+      "d:": "deny"
+    }
+  }
+}

@@ -1,0 +1,157 @@
+<link rel="stylesheet" href="_hna_styles_v7.css">
+
+<!-- Đáp án ẩn phục vụ tính toán Visual Diff -->
+<span id="correct-answer" aria-hidden="true">{{word}}</span>
+
+<!-- Settings menu markup is NOT here anymore. It used to be a ~99-line
+     <template id="settings-template"> duplicated verbatim in this file and in
+     Front.html, so every menu change had to be made twice by hand or the two
+     faces drifted. It now has one definition: AnkiEngine.MENU_SPEC in
+     _hna_engine.js, built lazily into #settingsMenu on first gear click. -->
+
+<!-- Nút Cài đặt & Menu (Cố định góc trên bên phải) -->
+<button id="btnSettings" type="button" class="btn-settings" aria-label="Inställningar" onclick="AnkiEngine.toggleSettings(event)">
+    <div class="settings-cross"></div>
+</button>
+<div id="settingsMenu" class="settings-menu"></div>
+
+<div class="card-wrapper">
+    <div class="aurora-card card-back">
+        <!-- Layer 1: Animated aurora background — moved out to a
+             session-persistent singleton, see _hna_aurora.js. Nothing
+             here anymore on purpose (no leftover .aurora-bg div). -->
+
+        <!-- Layer 3: Pseudo glass on .recall-card::before/::after -->
+        <div class="card-content">
+
+            <!-- Khu vực Recall Card (Thông tin chi tiết từ vựng) — progressive reveal -->
+            <div class="recall-card glass-pseudo">
+                <!-- §1: HEADWORD — the hero, appears immediately.
+                     Anchored metadata: pos-badge / IPA / audio live in their own
+                     row BELOW the word, so a long word or phrase can never
+                     displace them (they are grammatical pre-training cues that
+                     must stay visible — BUG-025). -->
+                <div class="back-section back-section--word">
+                    <span class="swedish-word">{{word}}</span>
+                    <div class="word-meta">
+                        {{#pos}}<span class="pos-badge">{{pos}}</span>{{/pos}}
+                        {{#transliteration}}<span class="ipa" data-pron="{{transliteration}}">[{{transliteration}}]</span>{{/transliteration}}
+                        {{#audio_word}}<span class="sound">{{audio_word}}</span>{{/audio_word}}
+                    </div>
+                </div>
+
+                <!-- §2: CONTEXT — example + image, fades in after word -->
+                <div class="back-section back-section--context">
+                    {{#image}}
+                    <div class="recall-thumb">
+                        {{image}}
+                    </div>
+                    {{/image}}
+                    {{#example}}
+                    <div class="example-box glass-pseudo">
+                        <div class="ex-text">
+                            <span>{{example}}</span>
+                            {{#audio_example}}<span class="sound">{{audio_example}}</span>{{/audio_example}}
+                        </div>
+                        {{#example_translated}}<div class="ex-trans">{{example_translated}}</div>{{/example_translated}}
+                    </div>
+                    {{/example}}
+                </div>
+
+                <!-- §3: EXTRA INFORMATION — opens by default. The explain
+                     paragraph leads (it answers "why is this word used
+                     here?"), then forms / synonyms / antonyms follow. -->
+                <div class="back-section back-section--expand">
+                    <details class="expand-container" id="expand-info-details" open>
+                        <summary class="expand-trigger">Extra information <span class="expand-chevron"></span></summary>
+                        <div class="expand-content glass-pseudo">
+                            {{#explain}}<div class="giaithich">{{explain}}</div>{{/explain}}
+                            {{#forms}}
+                            <div class="row-info"><span class="label">Böjningsformer</span> <span class="val">{{forms}}</span></div>
+                            {{/forms}}
+                            {{#synonym}}
+                            <div class="row-info"><span class="label">Synonymer</span> <span class="val">{{synonym}}</span></div>
+                            {{/synonym}}
+                            {{#antonym}}
+                            <div class="row-info"><span class="label">Antonymer</span> <span class="val">{{antonym}}</span></div>
+                            {{/antonym}}
+                        </div>
+                    </details>
+                </div>
+            </div>
+
+            <!-- Khu vực Phản hồi Visual Diff & Verdict — sits below the word -->
+            <div id="visual-diff-container" class="verdict-card" role="status" aria-live="polite" aria-atomic="true">
+                <div id="diff-section-correct" class="diff-section">
+                    <div class="diff-row-label">Det korrekta svaret</div>
+                    <div id="diff-correct-row" class="diff-row diff-row-correct"></div>
+                </div>
+                <div id="diff-section-input" class="diff-section">
+                    <div class="diff-row-label">Ditt svar</div>
+                    <div id="diff-input-row" class="diff-row diff-row-typed"></div>
+                </div>
+            </div>
+
+            <script>
+                (function() {
+                    var det = document.getElementById('expand-info-details');
+                    if (det) {
+                        var content = det.querySelector('.expand-content');
+                        if (!content || !content.textContent.trim()) {
+                            det.style.display = 'none';
+                        }
+                        // The Back face is long on phones, so keep Extra
+                        // information collapsed by default there. Desktop keeps
+                        // the section open (the explain paragraph leads).
+                        if (typeof window.matchMedia === 'function' &&
+                            window.matchMedia('(max-width: 768px)').matches) {
+                            det.removeAttribute('open');
+                        }
+                    }
+
+                    // Tag-aware emptiness: {{image}} renders an <img>-only node
+                    // whose textContent is whitespace, so textContent.trim()
+                    // alone hid real image cards. Hide only when there is no
+                    // media child AND no non-whitespace text.
+                    var thumb = document.querySelector('.recall-thumb');
+                    if (thumb && !thumb.querySelector('img,audio,video') && !thumb.textContent.trim()) {
+                        thumb.style.display = 'none';
+                    }
+
+                    // Same predicate: {{example}} may embed an image or audio.
+                    var exBox = document.querySelector('.example-box');
+                    if (exBox && !exBox.querySelector('img,audio,video') && !exBox.textContent.trim()) {
+                        exBox.style.display = 'none';
+                    }
+                })();
+            </script>
+
+            <!-- Footer & Toolbar (Tags 1-4, ID) -->
+            <div class="footer-toolbar">
+                <hr class="aurora-divider">
+
+                <div class="card-tags glass-pseudo">
+                    {{#tag_1}}<span class="tag-badge" title="{{tag_1}}">{{tag_1}}</span>{{/tag_1}}
+                    {{#tag_2}}<span class="tag-badge" title="{{tag_2}}">{{tag_2}}</span>{{/tag_2}}
+                    {{#tag_3}}<span class="tag-badge" title="{{tag_3}}">{{tag_3}}</span>{{/tag_3}}
+                    {{#tag_4}}<span class="tag-badge" title="{{tag_4}}">{{tag_4}}</span>{{/tag_4}}
+                    {{#ID}}<span class="tag-badge id-badge" title="{{ID}}">ID: {{ID}}</span>{{/ID}}
+                </div>
+                <div class="stats-footer">HNA • ID {{ID}} • {{Tags}}</div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script src="_hna_storage.js"></script>
+<!-- _hna_engine.js must precede _hna_diff.js / _hna_typing.js: both call
+     AnkiEngine.decodeHTML at load time. With diff first, the very first card
+     of a session threw "AnkiEngine is not defined" and the correct-answer row
+     rendered empty. -->
+<script src="_hna_engine.js"></script>
+<script src="_hna_diff.js"></script>
+<script src="_hna_typing.js"></script>
+<!-- Independent of the modules above — creates/repositions the aurora
+     singleton in <body>, outside the region Anki swaps each card. -->
+<script src="_hna_aurora.js"></script>

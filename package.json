@@ -1,0 +1,17 @@
+{
+  "devDependencies": {
+    "jsdom": "^30.0.1"
+  },
+  "scripts": {
+    "test": "node tests/run-all.js",
+    "test:preflight": "node tests/run-all.js --preflight",
+    "test:unit": "node tests/run-all.js --unit",
+    "test:mcq": "node tests/run-all.js --mcq",
+    "test:ram": "node tests/run-all.js --ram",
+    "test:design": "node tests/run-all.js --design",
+    "test:ui": "node tests/run-all.js --ui",
+    "test:all": "node tests/run-all.js",
+    "preview:build": "node preview/build-preview.js",
+    "release:check": "node tests/run-all.js --publish"
+  }
+}

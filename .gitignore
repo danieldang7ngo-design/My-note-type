@@ -1,0 +1,8 @@
+node_modules/
+publish/
+backups/
+.opencode/
+.continue/
+__pycache__/
+*.pyc
+*.log

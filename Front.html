@@ -1,0 +1,87 @@
+<link rel="stylesheet" href="_hna_styles_v7.css">
+
+<!-- Đáp án ẩn phục vụ Realtime Checker -->
+<span id="correct-answer" aria-hidden="true">{{word}}</span>
+
+<!-- Settings menu markup is NOT here anymore. It used to be a ~99-line
+     <template id="settings-template"> duplicated verbatim in this file and in
+     Back.html, so every menu change had to be made twice by hand or the two
+     faces drifted. It now has one definition: AnkiEngine.MENU_SPEC in
+     _hna_engine.js, built lazily into #settingsMenu on first gear click. -->
+
+<!-- Nút Cài đặt & Menu -->
+<button type="button" id="btnSettings" class="btn-settings" onclick="AnkiEngine.toggleSettings(event)" aria-label="Inställningar">
+    <div class="settings-cross"></div>
+</button>
+<div id="settingsMenu" class="settings-menu"></div>
+
+<div class="card-wrapper">
+    <div class="aurora-card card-front">
+        <!-- Layer 1: Animated aurora background — moved out to a
+             session-persistent singleton, see _hna_aurora.js. Nothing
+             here anymore on purpose (no leftover .aurora-bg div). -->
+
+        <!-- Layer 3: Pseudo glass on .cue-card::before/::after -->
+        <div class="card-content">
+            <!-- Khung Gợi ý Mặt trước (Cue Card) — meaning→word mode -->
+            <div class="cue-card glass-pseudo cue-card--meaning">
+                <div class="prompt-label">Mening</div>
+                <div class="meaning-row">
+                    {{#pos}}<span class="pos-badge">{{pos}}</span>{{/pos}}
+                    {{#audio_meaning}}<span class="sound">{{audio_meaning}}</span>{{/audio_meaning}}
+                </div>
+                {{#meaning}}<span class="prompt-content">{{meaning}}</span>{{/meaning}}
+                {{#explain}}
+                <details class="hint-reveal">
+                    <summary class="hint-reveal-trigger">Mer förklaring</summary>
+                    <div class="giaithich">{{explain}}</div>
+                </details>
+                {{/explain}}
+            </div>
+
+            <!-- Ô nhập từ Option A: Khung gõ tích hợp Nút Hint làm Suffix -->
+            <div class="typing-area">
+                <div class="type-input-wrapper glass-pseudo">
+                    {{type:word}}
+                    <div id="typeans-overlay"></div>
+                    <div id="smooth-caret"></div>
+                </div>
+            </div>
+
+            <!-- Footer Toolbar -->
+            <div class="footer-toolbar">
+                <div class="card-tags glass-pseudo">
+                    {{#tag_1}}<span class="tag-badge" title="{{tag_1}}">{{tag_1}}</span>{{/tag_1}}
+                    {{#tag_2}}<span class="tag-badge" title="{{tag_2}}">{{tag_2}}</span>{{/tag_2}}
+                    {{#tag_3}}<span class="tag-badge" title="{{tag_3}}">{{tag_3}}</span>{{/tag_3}}
+                    {{#tag_4}}<span class="tag-badge" title="{{tag_4}}">{{tag_4}}</span>{{/tag_4}}
+                    {{#ID}}<span class="tag-badge id-badge" title="{{ID}}">ID: {{ID}}</span>{{/ID}}
+                </div>
+                <div class="stats-footer">HNA • ID {{ID}} • {{Tags}}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="_hna_storage.js"></script>
+<!-- _hna_engine.js must precede _hna_diff.js / _hna_typing.js: both call
+     AnkiEngine.decodeHTML at load time. -->
+<script src="_hna_engine.js"></script>
+<script src="_hna_diff.js"></script>
+<script src="_hna_typing.js"></script>
+<!-- Independent of the modules above — creates/repositions the aurora
+     singleton in <body>, outside the region Anki swaps each card. -->
+<script src="_hna_aurora.js"></script>
+<script>
+(function() {
+    var det = document.querySelector('.hint-reveal');
+    if (!det) return;
+    var gi = det.querySelector('.giaithich');
+    // Tag-aware emptiness: {{explain}} may contain an <img>; an <img>-only
+    // node has whitespace textContent, so hide only when there is no media
+    // child AND no non-whitespace text.
+    if (!gi || (!gi.querySelector('img,audio,video') && !gi.textContent.trim())) {
+        det.style.display = 'none';
+    }
+})();
+</script>
