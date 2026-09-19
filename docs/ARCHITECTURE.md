@@ -227,7 +227,10 @@ whole subtree alive.
    class-swaps spans (correct/wrong/extra + cursor), manages overflow spans
    beyond the answer length, auto-scrolls the overlay, and positions the
    smooth caret via `translate3d`.
-9. Hint button appends the next typeable character from `typeableSlots`.
+9. Placeholder styling per char: letters → `_` slot, spaces empty (see item 5);
+   punctuation renders a visible muted glyph (`char-punctuation-hint`). No
+   separate hint button exists in the current build — the front face's only
+   "hint" is the `details.hint-reveal` expander for the optional explanation.
 10. **Card-type selector removed** — the Betydelse → Ord / Exempel → Ord
     mode switcher was deleted (2026-08-14 refactor); the meaning cue card is
     the only card and stays visible.
