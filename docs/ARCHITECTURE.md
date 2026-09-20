@@ -251,8 +251,9 @@ diff rendering is fully synchronous against the static Back rows.
    and `renderRows` uses a precomputed `breakMap` to re-insert `\n` at the
    correct text node positions.
 4. Verdict decision tree:
-   - no typed answer → hide typed row, "Det korrekta svaret", wrong tint
-   - exact match → "Exakt!", correct tint, typed row hidden
+    - no typed answer → hide typed row, "Det korrekta svaret", wrong tint
+    - exact match → "Exakt!", correct tint, typed row hidden
+    - wrong / near-miss → typed + correct rows compared, both row titles hidden
    - else → Levenshtein distance ≤ 2 ⇒ near-miss, full diff rows
 5. **O(n·m) guard**: if `typed.length * correct.length > 40000` the diff
    falls back to `renderSimple` — two plain rows (typed tinted `diff-row-typed`,

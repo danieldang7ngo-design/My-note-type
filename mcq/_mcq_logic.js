@@ -117,6 +117,10 @@ window.AnkiMCQ = window.AnkiMCQ || {};
         var container = document.getElementById('mcq-options-container');
         AnkiMCQ.destroyFront();
         window.__hnaMCQAnswered = false;
+        // A freshly shown question carries no answer: drop any stored
+        // selection, or a same-tab refresh/undo resurrects the last verdict
+        // from sessionStorage on the next flip.
+        AnkiMCQ.clearState();
         if (!container) return;
 
         var rawChoices = AnkiMCQ.getRawChoicesFromDOM();
@@ -165,15 +169,38 @@ window.AnkiMCQ = window.AnkiMCQ || {};
         }
         window.__hnaMCQKeydown = function(e) {
             if (e.isComposing) return;
+            // Never hijack browser/Anki chords or keystrokes aimed at an
+            // editable field — plain 1-4/a-d on the card body only.
+            if (e.ctrlKey || e.metaKey || e.altKey) return;
+            var tgt = e.target;
+            if (tgt && (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA' || tgt.tagName === 'SELECT' || tgt.isContentEditable)) return;
             var key = e.key;
+            var kl = (key || '').toLowerCase();
             if (key >= '1' && key <= list.length.toString()) {
                 AnkiMCQ.selectAndFlip(parseInt(key) - 1, list);
                 e.preventDefault();
                 e.stopPropagation();
-            } else if (['a', 'b', 'c', 'd'].indexOf(key.toLowerCase()) !== -1) {
-                var idx = ['a', 'b', 'c', 'd'].indexOf(key.toLowerCase());
+            } else if (['a', 'b', 'c', 'd'].indexOf(kl) !== -1) {
+                var idx = ['a', 'b', 'c', 'd'].indexOf(kl);
                 if (idx < list.length) {
                     AnkiMCQ.selectAndFlip(idx, list);
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+            } else {
+                // Layout/IME-proof fallback: physical key positions, same
+                // house pattern as the engine's Alt+S/Alt+D shortcuts.
+                var code = e.code || '';
+                var m = /^(?:Digit|Numpad)([1-4])$/.exec(code);
+                var cidx = -1;
+                if (m) {
+                    cidx = parseInt(m[1], 10) - 1;
+                } else {
+                    var lm = /^Key([A-D])$/.exec(code);
+                    if (lm) cidx = lm[1].charCodeAt(0) - 65;
+                }
+                if (cidx >= 0 && cidx < list.length) {
+                    AnkiMCQ.selectAndFlip(cidx, list);
                     e.preventDefault();
                     e.stopPropagation();
                 }
@@ -266,7 +293,11 @@ window.AnkiMCQ = window.AnkiMCQ || {};
         // Render Verdict
         if (verdict) {
             if (chosenIndex === -1) {
-                verdict.innerHTML = '<div class="verdict-banner neutral">💡 Đáp án chuẩn bên dưới</div>';
+                // No selection (flipped without answering, or state lost —
+                // deliberately not distinguished): counts as wrong, while the
+                // correct slot is still flagged below.
+                verdict.innerHTML = '<div class="verdict-banner wrong">✗ BỎ TRỐNG — TÍNH LÀ SAI</div>';
+                if (window.AnkiAudio) AnkiAudio.playTone('wrong');
             } else if (isCorrectChoice) {
                 verdict.innerHTML = '<div class="verdict-banner correct">✓ CHÍNH XÁC! 🎉</div>';
                 if (window.AnkiAudio) AnkiAudio.playTone('correct');

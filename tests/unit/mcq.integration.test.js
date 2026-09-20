@@ -9,7 +9,7 @@
      3. Choosing an option stores the state (sig, shuffled order, index) and
         flips to Anki via pycmd('ans'); the back face re-renders the stored
         order and flags the chosen slot / plays the matching tone.
-     4. The back with no state shows a neutral banner (no verdict leak) and
+     4. The back with no state shows a WRONG verdict (skipped counts as wrong) and
         still marks ready.
      5. Empty raw options keep the marker OFF so the static fallback stays.
      6. destroyFront removes the logic module's keydown listener.
@@ -283,16 +283,16 @@ cases.push({
 });
 
 cases.push({
-  name: 'mcq integration: back with no stored state renders a neutral verdict and still marks ready',
+  name: 'mcq integration: back with no stored state renders a WRONG verdict (skipped counts as wrong) and still marks ready',
   fn() {
     const env = makeEnv(baseHtml('back'));
     const win = env.win;
     win.AnkiMCQ.initBack();
     win.__flush();
     const verdict = win.document.querySelector('.verdict-banner');
-    assertTrue(!!verdict && verdict.className.indexOf('neutral') !== -1,
-      'no-state back must show the neutral banner (no correct/wrong verdict leak)');
-    assertEq(env.tones.length, 0, 'no state means no verdict tone');
+    assertTrue(!!verdict && verdict.className.indexOf('wrong') !== -1,
+      'no-state back must show the wrong banner — skipping counts as wrong');
+    assertEq(env.tones.join(','), 'wrong', 'no state must play the wrong tone');
     assertTrue(win.document.documentElement.classList.contains('mcq-ready'),
       'back must still mark ready so the static fallback hides behind the grid');
     assertEq(win.document.querySelectorAll('.mcq-option-btn.is-static').length, 4,
@@ -382,6 +382,87 @@ cases.push({
         'key "' + pair[0] + '" must mark exactly one slot is-pressed');
       assertTrue(win.__hnaMCQAnswered === true, 'answered latch must be set after key selection');
     });
+  }
+});
+
+cases.push({
+  name: 'mcq integration: physical key positions work when e.key is unusable (IME/layout) via e.code',
+  fn() {
+    const pairs = [
+      ['Digit1', 0], ['Digit2', 1], ['Numpad3', 2], ['Numpad4', 3],
+      ['KeyA', 0], ['KeyB', 1], ['KeyC', 2], ['KeyD', 3]
+    ];
+    pairs.forEach(function (pair) {
+      const env = makeEnv(baseHtml('front'));
+      const win = env.win;
+      win.AnkiEngine.config.shuffleChoices = false;
+      win.AnkiMCQ.initFront();
+      win.__flush();
+      const evt = new win.KeyboardEvent('keydown', { key: 'Unidentified', code: pair[0], bubbles: true, cancelable: true });
+      win.document.dispatchEvent(evt);
+      win.__flush();
+      assertTrue(!!win.__hnaMCQState, 'code "' + pair[0] + '" must select an option');
+      assertEq(win.__hnaMCQState.chosenIndex, pair[1], 'code "' + pair[0] + '" must select slot ' + pair[1]);
+      assertTrue(evt.defaultPrevented, 'code "' + pair[0] + '" must be defaultPrevented');
+      assertEq(env.flipArgs.join(','), 'ans', 'code "' + pair[0] + '" must flip via pycmd("ans")');
+    });
+  }
+});
+
+cases.push({
+  name: 'mcq integration: modified keys and editable targets never trigger selection',
+  fn() {
+    // Browser/Anki chords must pass through untouched.
+    [{ key: '1', ctrlKey: true }, { key: '2', altKey: true }, { key: 'a', metaKey: true }].forEach(function (cfg) {
+      const env = makeEnv(baseHtml('front'));
+      const win = env.win;
+      win.AnkiEngine.config.shuffleChoices = false;
+      win.AnkiMCQ.initFront();
+      win.__flush();
+      cfg.bubbles = true;
+      cfg.cancelable = true;
+      const evt = new win.KeyboardEvent('keydown', cfg);
+      win.document.dispatchEvent(evt);
+      win.__flush();
+      assertTrue(!win.__hnaMCQState, 'modified key must not select an option');
+      assertEq(env.flipArgs.length, 0, 'modified key must not flip');
+      assertTrue(!evt.defaultPrevented, 'modified key must not be defaultPrevented');
+    });
+    // Keystrokes aimed at an editable field must pass through untouched.
+    const env2 = makeEnv(baseHtml('front'));
+    const win2 = env2.win;
+    win2.AnkiEngine.config.shuffleChoices = false;
+    win2.AnkiMCQ.initFront();
+    win2.__flush();
+    const input = win2.document.createElement('input');
+    win2.document.body.appendChild(input);
+    const evt2 = new win2.KeyboardEvent('keydown', { key: '2', bubbles: true, cancelable: true });
+    input.dispatchEvent(evt2);
+    win2.__flush();
+    assertTrue(!win2.__hnaMCQState, 'key in an editable field must not select');
+    assertEq(env2.flipArgs.length, 0, 'key in an editable field must not flip');
+  }
+});
+
+cases.push({
+  name: 'mcq integration: reshown question drops the stored selection (no stale verdict after refresh/undo)',
+  fn() {
+    const env = makeEnv(baseHtml('front'));
+    const win = env.win;
+    win.AnkiMCQ.initFront();
+    win.__flush();
+    const evt = new win.KeyboardEvent('keydown', { key: '2', bubbles: true, cancelable: true });
+    win.document.dispatchEvent(evt);
+    win.__flush();
+    assertTrue(!!win.__hnaMCQState, 'setup: the selection must be stored');
+    // The question is shown again (refresh, undo, reshuffle): the stale
+    // answer must be gone from BOTH channels, so a blank flip stays blank.
+    win.AnkiMCQ.initFront();
+    win.__flush();
+    assertTrue(!win.__hnaMCQState, 'reshow must clear the in-memory state');
+    let stored = null;
+    try { stored = win.sessionStorage.getItem('hna-mcq-state'); } catch (e) {}
+    assertTrue(!stored, 'reshow must clear sessionStorage so a blank flip stays blank');
   }
 });
 

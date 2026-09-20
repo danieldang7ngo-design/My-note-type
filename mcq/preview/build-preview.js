@@ -201,6 +201,28 @@ window.addEventListener('message', function(e) {
   }
 });
 
+// Keyboard forwarding: the card lives in an iframe, so plain 1-4/a-d pressed
+// while the outer toolbar holds focus would never reach it. Mirror those keys
+// into the stage on the FRONT face only — the back must ignore shortcuts by
+// contract, and the in-card handler still owns selection + flip.
+document.addEventListener('keydown', function (e) {
+  if (face !== 'front') return;
+  if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return;
+  var t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+  var k = e.key || '';
+  var ok = (k >= '1' && k <= '4') ||
+    ['a', 'b', 'c', 'd', 'A', 'B', 'C', 'D'].indexOf(k) !== -1;
+  if (!ok) return;
+  try {
+    var doc = stage.contentDocument;
+    if (!doc) return;
+    var evt = new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true });
+    doc.dispatchEvent(evt);
+    e.preventDefault();
+  } catch (err) {}
+});
+
 document.getElementById('bFront').onclick = function() { face = 'front'; this.classList.add('on'); document.getElementById('bBack').classList.remove('on'); renderStage(); };
 document.getElementById('bBack').onclick = function() { face = 'back'; this.classList.add('on'); document.getElementById('bFront').classList.remove('on'); renderStage(); };
 document.getElementById('bNight').onclick = function() {

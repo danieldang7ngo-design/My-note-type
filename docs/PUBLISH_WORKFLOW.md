@@ -99,8 +99,8 @@ impossible to strand with zero options:
 This contract is enforced by `tests/pre-flight.js` (static) and
 `tests/unit/mcq.integration.test.js` (a hermetic jsdom run of the real
 storage/engine/logic modules: grid build, shuffle config, state round-trip,
-verdict tones, neutral no-state, empty-choices marker absence, keydown
-lifecycle).
+verdict tones (no-state back is a wrong verdict — skipping counts as wrong),
+empty-choices marker absence, keydown lifecycle).
 
 ### 2. Unit tests
 

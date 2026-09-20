@@ -178,7 +178,10 @@
 
         function getPlaceholderState(c) {
             if (c === '\n') return { cls: 'char-linebreak', text: '' };
-            if (c === ' ') return { cls: 'char-space-placeholder', text: '' };
+            // A real space text (not '') so the overlay's text-align: justify
+            // has collapsible whitespace to spread — wrapped answer lines then
+            // fill the full card width instead of hugging left.
+            if (c === ' ') return { cls: 'char-space-placeholder', text: ' ' };
             // Runtime-built regex first (null on engines without property
             // escapes), then the ASCII fallback, then the punctuation hint.
             if (PLACEHOLDER_LETTER_RE && PLACEHOLDER_LETTER_RE.test(c)) return { cls: 'char-placeholder', text: '_' };

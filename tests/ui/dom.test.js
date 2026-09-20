@@ -60,6 +60,22 @@ cases.push({
 });
 
 cases.push({
+  name: 'ui: front face shows the meaning first with pos/audio anchored below it',
+  fn: () => {
+    flip(win, frontCard());
+    const cue = win.document.querySelector('.cue-card--meaning');
+    assert.ok(cue, '.cue-card--meaning missing');
+    const content = cue.querySelector('.prompt-content');
+    const row = cue.querySelector('.meaning-row');
+    assert.ok(content, '.prompt-content (meaning) missing');
+    assert.ok(row, '.meaning-row (pos/audio) missing');
+    const order = content.compareDocumentPosition(row);
+    assert.ok(order & win.document.DOCUMENT_POSITION_FOLLOWING,
+      '.meaning-row (pos/audio) must sit below .prompt-content (meaning)');
+  }
+});
+
+cases.push({
   name: 'ui: back template structure (hero word, recall card, diff rows, anchored headword)',
   fn: () => {
     flip(win, backCard());
@@ -336,6 +352,53 @@ cases.push({
 });
 
 cases.push({
+  name: 'ui: example renders as a disclosure with the play button in the title row (clicking it does not toggle)',
+  fn: () => {
+    const withAudio = Object.assign({}, SAMPLE, { audio_example: '[sound:exempel.mp3]' });
+    const html = backCard(withAudio);
+    // The inline guard must keep the play button from toggling the disclosure.
+    assert.ok(/.sound, \.replay-button, \.soundLink/.test(html),
+      'Back.html must guard the summary click for the sound/replay button');
+    assert.ok(/preventDefault\(\)/.test(html),
+      'Back.html must cancel the summary click default when the play button is hit');
+    const doc = inlineScriptDoc(html);
+    const det = doc.getElementById('example-dropdown');
+    assert.ok(det, 'example dropdown missing');
+    assert.strictEqual(det.tagName, 'DETAILS', 'example must be a <details> disclosure');
+    const sum = det.querySelector('summary');
+    assert.ok(sum, 'example summary missing');
+    assert.ok(sum.classList.contains('example-trigger'), 'example summary must carry example-trigger');
+    assert.ok(sum.textContent.indexOf('Exempel') !== -1, 'summary title missing');
+    assert.ok(sum.querySelector('.expand-chevron'), 'summary chevron missing');
+    // The title row is Extra information's twin: exactly two flex children
+    // (title row + chevron), with the text and play button glued together.
+    const titleRow = sum.querySelector('.example-title-row');
+    assert.ok(titleRow, 'title text and play button must be wrapped in .example-title-row');
+    assert.ok(titleRow.textContent.indexOf('Exempel') !== -1, 'title row must carry the Exempel text');
+    assert.ok(titleRow.querySelector('.sound'), 'play button must sit inside the title row');
+    assert.strictEqual(sum.children.length, 2,
+      'summary must hold exactly two children (title row + chevron), like Extra information');
+    // Flat title, raised content: the wrapper carries no glass, the copy
+    // panel does — exactly like Extra information.
+    assert.ok(!det.classList.contains('glass-pseudo'),
+      'example wrapper must be flat — no glass-pseudo on the details');
+    assert.ok(det.querySelector('.expand-content').classList.contains('glass-pseudo'),
+      'copy panel must carry glass-pseudo — the raised layer appears only around the content');
+    const snd = sum.querySelector('.sound');
+    assert.ok(snd, 'play button wrapper must live in the title row (not inside the sentence)');
+    assert.ok(!det.querySelector('.expand-content .sound'),
+      'the copy panel must not carry the play button — it moved to the title row');
+    assert.ok(det.querySelector('.expand-content .ex-text'), 'copy panel must keep the sentence');
+    assert.ok(det.hasAttribute('open'), 'desktop keeps the example disclosure open by default');
+    // Clicking the play button must not toggle the disclosure open/closed.
+    const before = det.hasAttribute('open');
+    snd.dispatchEvent(new doc.defaultView.MouseEvent('click', { bubbles: true, cancelable: true }));
+    assert.strictEqual(det.hasAttribute('open'), before,
+      'clicking the title-row play button must not toggle the example disclosure');
+  }
+});
+
+cases.push({
   name: 'ui: typing preview converts [sound:] to replay-button and samples the audio fields',
   fn: () => {
     const fs = require('fs');
@@ -346,6 +409,10 @@ cases.push({
       'root preview must embed the [sound:] -> replay-button converter');
     assert.ok(source.indexOf('replay-button soundLink') !== -1,
       'root preview must emit .replay-button.soundLink anchors');
+    assert.ok(source.indexOf('a.replay-button.soundLink { color: transparent; font-size: 0; letter-spacing: 0; }') !== -1,
+      'preview must zero the hidden sound token letter-spacing — inherited title spacing once squeezed the icon to zero width');
+    assert.ok(source.indexOf('#qa{max-width:100%;min-width:0}') !== -1,
+      'preview stage wrapper must be viewport-pinned — its shrink-to-fit pushed the whole card right on tablet');
     assert.ok(source.indexOf('[sound:meaning.mp3]') !== -1,
       'root preview SAMPLE must include a non-empty audio_meaning field');
     // The shipped sheet must style Anki replay buttons on both faces.

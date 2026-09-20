@@ -210,7 +210,11 @@ function buildDoc() {
     '<\\/script>';
   var nightClass = nightMode ? ' night-mode' : '';
   return '<!DOCTYPE html><html class="' + (nightMode ? 'night-mode' : '') + '"><head><meta charset="utf-8">' +
-    '<style>' + HNA_CSS + ' body.hna-preview #qa .sound a.replay-button.soundLink { color: transparent; font-size: 0; }<\/style></head><body class="hna-preview' + nightClass + '">' +
+    // #qa is the preview-only stage wrapper: as a grid item it shrink-to-fit
+    // past the viewport on narrow stages, pushing the whole card right (the
+    // body clips the overflow, so it read as an off-centre card). Pin it to
+    // the viewport; shipped CSS is untouched by this harness-only rule.
+    '<style>' + HNA_CSS + ' #qa{max-width:100%;min-width:0} body.hna-preview #qa .sound a.replay-button.soundLink { color: transparent; font-size: 0; letter-spacing: 0; }<\/style></head><body class="hna-preview' + nightClass + '">' +
     '<div id="qa">' + parts.html + '</div>' + pre + modsHtml +
     '<script>' + parts.inline.join(';\\n') + ';(function(){var input=document.getElementById("typeans");if(input)input.disabled=true;})();<\\/script>' +
     '</body></html>';

@@ -16,6 +16,8 @@
 
     // Copy rendered next to the correct-answer row, keyed by the semantic
     // verdict's messageKey. The verdict itself stays language-agnostic.
+    // Titles only show on single-row verdicts (exact / unanswered): the
+    // side-by-side comparison view hides both row titles (see below).
     var VERDICT_LABELS = {
         'label-answer': 'Det korrekta svaret',
         'label-exact': 'Exakt!'
@@ -62,8 +64,10 @@
         // Semantic verdict model (Phase 2): a pure, DOM-free verdict object
         // drives every disclosure decision below — what is revealed (typed
         // row, granular diff), how the tone sounds, and which label copy
-        // sits next to the correct row. The object is unit-tested
-        // differentially via window.__hnaDiffInternals.computeVerdict.
+        // sits next to the correct row. Row titles only show on single-row
+        // verdicts; the comparison view hides them (below). The object is
+        // unit-tested differentially via
+        // window.__hnaDiffInternals.computeVerdict.
         var verdict = computeVerdict(typed, correct);
         var container = document.getElementById('visual-diff-container');
         // The typing overlay judges each typed character against the answer
@@ -93,6 +97,12 @@
             }
             return true;
         }
+
+        // Wrong / near-miss: the typed row renders under the correct row
+        // for comparison — the row titles are noise there, so hide both.
+        // (Single-row verdicts above keep theirs.)
+        var diffLabels = document.querySelectorAll('#visual-diff-container .diff-row-label');
+        for (var li = 0; li < diffLabels.length; li++) diffLabels[li].style.display = 'none';
 
         // Wrong / near-miss: reveal the typed answer, aligned against the
         // correct one. Cap the DP product. The typed side is user-controlled —
@@ -308,42 +318,7 @@
         });
     }
 
-    // Mobile-only: a long corrected/typed diff collapses to two lines with a
-    // tap-to-expand toggle. jsdom (tests) has no matchMedia, so this stays a
-    // no-op there and the diff DOM is exactly what the unit tests expect.
-    function applyDiffClamp() {
-        if (typeof window.matchMedia !== 'function') return;
-        var mobile;
-        try { mobile = window.matchMedia('(max-width: 768px)').matches; } catch (e) { return; }
-        if (!mobile) return;
-        ['diff-correct-row', 'diff-input-row'].forEach(function (id) {
-            var row = document.getElementById(id);
-            if (!row) return;
-            var next = row.nextElementSibling;
-            if (next && next.classList && next.classList.contains('diff-toggle')) {
-                row.parentNode.removeChild(next);
-            }
-            row.classList.remove('diff-clamped', 'diff-expanded');
-            var lh = parseFloat(getComputedStyle(row).lineHeight) || 0;
-            if (!lh || row.scrollHeight <= lh * 2 + 3) return;
-            row.classList.add('diff-clamped');
-            var btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'diff-toggle';
-            btn.textContent = 'Visa mer';
-            btn.setAttribute('aria-expanded', 'false');
-            btn.addEventListener('click', function () {
-                var expanded = row.classList.toggle('diff-expanded');
-                btn.textContent = expanded ? 'Visa mindre' : 'Visa mer';
-                btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-            });
-            if (row.nextSibling) row.parentNode.insertBefore(btn, row.nextSibling);
-            else row.parentNode.appendChild(btn);
-        });
-    }
-
     renderDiff();
-    applyDiffClamp();
 
     // renderDiff() fills the diff rows synchronously against the static HTML
     // rows defined in Back.html, so the first call always returns true. The

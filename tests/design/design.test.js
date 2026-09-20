@@ -841,7 +841,7 @@ cases.push({
    the earlier ≤768 and ≤480 tiers. */
 
 cases.push({
-  name: 'design: ≤768 headline/diff text is left-aligned (prompt-content, swedish-word, example, diff rows)',
+  name: 'design: ≤768 headline/diff text is flushed left, diff rows justified (prompt-content, swedish-word, example, diff rows)',
   fn: () => {
     const b = lastMediaBlock(768);
     assert.ok(/\.prompt-content\s*\{[^}]*text-align\s*:\s*left\s*;/.test(b),
@@ -858,8 +858,8 @@ cases.push({
       '≤768 .ex-text must be text-align: left — the example sentence starts flush');
     assert.ok(/\.diff-section\s*\{[^}]*align-items\s*:\s*flex-start\s*;/.test(b),
       '≤768 .diff-section must be align-items: flex-start — the centred column flex is what centres the diff chip/rows');
-    assert.ok(/\.diff-row-typed,\s*\.diff-row-correct\s*\{[^}]*text-align\s*:\s*left\s*;/.test(b),
-      '≤768 .diff-row-typed/.diff-row-correct must be text-align: left (both were text-align: center)');
+    assert.ok(!/text-align\s*:\s*justify/.test(ruleBlock('\\.diff-row-typed') + ruleBlock('\\.diff-row-correct')),
+      'diff rows must keep natural spacing — text-align: justify stretched the word gaps and read as unnatural');
     assert.ok(/\.diff-row-label\s*\{[^}]*margin-left\s*:\s*0\s*;/.test(b),
       '≤768 .diff-row-label must carry margin-left: 0 — the chip hugs left explicitly');
     // The "Exakt!" confirmation badge must stay centred — it is a short
@@ -891,13 +891,77 @@ cases.push({
 });
 
 cases.push({
-  name: 'design: ≤768 example audio stays on the example line',
+  name: 'design: the example is a disclosure and its audio lives in the "Exempel" title row (all widths)',
   fn: () => {
-    const b = lastMediaBlock(768);
-    assert.ok(/\.ex-text\s*\{[^}]*flex-wrap\s*:\s*nowrap\s*;/.test(b),
-      '≤768 .ex-text must be flex-wrap: nowrap — the audio button must not wrap below the sentence');
-    assert.ok(/\.ex-text \.sound\s*\{[^}]*flex\s*:\s*0 0 auto\s*;/.test(b),
-      '≤768 .ex-text .sound must be flex: 0 0 auto — the audio button must not shrink');
+    // The example box is now a <details>/<summary> disclosure: the play
+    // button moves out of the sentence and into the title row. The title
+    // row is Extra information's twin — it carries NO summary overrides;
+    // the base summary.expand-trigger rule (space-between) lays the two
+    // children (title + chevron) out, and .example-title-row glues the
+    // "Exempel" text to the play button on the left.
+    assert.ok(!/\.example-dropdown > summary\.expand-trigger\s*\{/.test(css),
+      'the example summary must carry no overrides — it renders exactly like the Extra information title row');
+    assert.ok(!/\.example-dropdown > summary\.expand-trigger \.expand-chevron\s*\{/.test(css),
+      'the example chevron must carry no margin-left: auto override — base space-between pushes it right');
+    assert.ok(/summary\.expand-trigger\s*\{[^}]*justify-content\s*:\s*space-between/.test(css),
+      'the base summary.expand-trigger must stay justify-content: space-between — shared by Extra information and Exempel');
+    assert.ok(/\.example-title-row\s*\{[^}]*display\s*:\s*inline-flex/.test(css),
+      '.example-title-row must be inline-flex — title text and play button stay glued on the left');
+    assert.ok(/\.example-title-row\s*\{[^}]*gap\s*:\s*var\(--s-2\)/.test(css),
+      '.example-title-row must keep the standard gap — title and play button breathe like the base title row');
+    assert.ok(/\.example-trigger \.replay-button[^{}]*\{[^}]*width\s*:\s*22px !important/.test(css),
+      '.example-trigger .replay-button must be title-height (22px) instead of the 34px standalone button');
+    assert.ok(/\.example-trigger \.replay-button::after[^{}]*\{[^}]*width\s*:\s*44px[^}]*height\s*:\s*44px/.test(css),
+      '.example-trigger .replay-button::after must keep the 44px tap hitbox');
+    // The audio is no longer inline with the sentence text, so that flex
+    // clamp must not come back (it glued the sentence and button together).
+    assert.ok(!/\.ex-text \.sound\s*\{/.test(css),
+      '.ex-text .sound must be gone — the play button now lives in the disclosure title row');
+    // The copy must drop into its own bordered panel — exactly like Extra
+    // information, so the title never fuses with the sentence below it.
+    assert.ok(/\.example-dropdown > \.expand-content\s*\{[^}]*padding\s*:\s*var\(--s-2\)\s*var\(--s-2_5\)[^}]*border\s*:\s*1px solid var\(--border-subtle\)/.test(css),
+      '.example-dropdown copy panel must keep padding + a visible border — the sentence/translation panel looks like the Extra information one');
+    // The play triangle is drawn with mask-image longhands (not the
+    // shorthand) over a percent-encoded data URI — the shorthand's
+    // "center / contain" size syntax dropped the whole mask on some
+    // engines, rendering a solid square instead of the triangle.
+    assert.ok(/-webkit-mask-image\s*:\s*url\('data:image\/svg\+xml,%3Csvg/.test(css),
+      '.replay-button::before must set -webkit-mask-image with an encoded data URI — the triangle survives strict parsers');
+    assert.ok(/mask-image\s*:\s*url\('data:image\/svg\+xml,%3Csvg/.test(css),
+      '.replay-button::before must set mask-image with an encoded data URI');
+    assert.ok(!/mask:\s*url\('data:image\/svg\+xml,</.test(css),
+      'no raw "<svg" data URI may remain in a mask shorthand — unencoded brackets broke the icon');
+    // The wrapper itself is flat — no card rail, shadow, padding or hover
+    // lift: the raised glass appears only on the copy panel below, exactly
+    // like Extra information (flat title, bordered content).
+    assert.ok(!/\.example-box:hover\s*\{/.test(css),
+      'no .example-box:hover — the flat wrapper must not lift like a card');
+    assert.ok(!/\.example-box\s*\{[^}]*border-left/.test(css),
+      '.example-box must carry no border rail — the title row sits flat');
+    assert.ok(!/\.example-box\s*\{[^}]*box-shadow/.test(css),
+      '.example-box must carry no shadow — the title row sits flat');
+    assert.ok(!/\.example-box\s*\{[^}]*padding/.test(css),
+      '.example-box must carry no padding — the title aligns like Extra information');
+    // The icon triangle must never collapse: it is a flex item inside the
+    // narrow button, and sibling content once squeezed it to zero width.
+    assert.ok(/\.replay-button::before[^{}]*\{[^}]*flex-shrink\s*:\s*0/.test(css),
+      '.replay-button::before must carry flex-shrink: 0 — the triangle survives any sibling content');
+  }
+});
+
+cases.push({
+  name: 'design: visual diff shrinks to fit — no justify hack, compact hug, trailing spread gone',
+  fn: () => {
+    assert.ok(!/#typeans-overlay\s*\{[^}]*text-align\s*:\s*justify/.test(css),
+      'typing overlay must not justify — wrapped lines keep natural word gaps');
+    assert.ok(/\.diff-row-correct,\s*\.diff-row-typed\s*\{[^}]*text-align\s*:\s*left\s*[^}]*line-height\s*:\s*1\.25/.test(css),
+      'diff rows must hug left with line-height 1.25 — the visual diff compresses to ~content height');
+    assert.ok(/\.verdict-card\s*\{[^}]*padding-top\s*:\s*var\(--s-1_5\)[^}]*padding-bottom\s*:\s*var\(--s-1_5\)/.test(css),
+      'verdict card must hug vertically (padding-top/bottom s-1_5) — only ~a sliver of air around the diff text');
+    assert.ok(!/#diff-correct-row::after|#diff-input-row::after/.test(css),
+      'no trailing full-width ::after must force the last diff line to spread edge-to-edge');
+    assert.ok(!/#typeans-overlay::after/.test(css),
+      'no trailing ::after on the typing overlay — the spread hack is gone');
   }
 });
 
@@ -1018,6 +1082,25 @@ cases.push({
       '≤480 .typing-area must use the tightened --s-2 top rung');
     assert.ok(/\.example-box\s*\{[^}]*margin-top\s*:\s*var\(--s-[34]\)\s*;/.test(b480),
       '≤480 .example-box must use the baseline --s-4 margin-top');
+    assert.ok(!/\.card-back \.verdict-card\s*\{[^}]*padding-right\s*:\s*64px/.test(css),
+      'no 64px right gutter may return to the verdict card — it left-shifted the diff and wrapped rows early on phones');
+  }
+});
+
+/* ---------- Verdict gutters stay symmetric (mobile left-shift revert) ----------
+   A one-sided padding on .verdict-card (the old 64px right gutter) pushed the
+   diff left and wrapped rows early despite visible space. Gutters must stay
+   symmetric at every width: no padding-right longhand on any verdict rule. */
+
+cases.push({
+  name: 'design: verdict-card gutters are symmetric at every width — no padding-right longhand',
+  fn: () => {
+    const rules = css.match(/\.verdict-card[^{]*\{[^}]*\}/g) || [];
+    assert.ok(rules.length >= 3, 'expected several .verdict-card rules, got ' + rules.length);
+    rules.forEach((rule) => {
+      assert.ok(!/padding-right\s*:/.test(rule),
+        'no padding-right longhand may sit on the verdict card — asymmetric gutters left-shifted the diff: ' + rule.slice(0, 120));
+    });
   }
 });
 
@@ -1176,10 +1259,10 @@ cases.push({
    The ≤768 fullscreen aurora host override is gone so the host stays
    card-sized and the static body::before backdrop is visible around the
    card on phones too. The source-last ≤768 tier also carries the phone
-   compaction: a smaller hero word, full-width copy (no 68ch left-hug),
-   a stronger card outline, a viewport-bounded compact settings menu, and
-   the two-line tap-to-expand visual diff. The explanation plate reads
-   more opaque than the old 0.06 tint. */
+   compaction: an even larger hero word (the top of the reading ladder),
+   full-width justified copy (no 68ch left-hug), a stronger card outline,
+   a viewport-bounded compact settings menu, and the two-line tap-to-expand
+   visual diff. The explanation plate reads more opaque than the old 0.06 tint. */
 
 cases.push({
   name: 'design: ≤768 aurora host is card-sized — the fullscreen !important override is gone',
@@ -1204,24 +1287,24 @@ cases.push({
 });
 
 cases.push({
-  name: 'design: ≤768 mobile compaction — smaller hero, full-width copy, stronger outline, compact menu, clamped diff',
+  name: 'design: ≤768 mobile compaction — larger hero, full-width copy, stronger outline, compact menu, unclamped diff',
   fn: () => {
     const b = lastMediaBlock(768);
-    assert.ok(/\.swedish-word\s*\{\s*font-size\s*:\s*clamp\(0\.9375rem,\s*3\.8vw,\s*1\.25rem\)\s*!important\s*;/.test(b),
-      '≤768 hero word must match the front cue-card question size (clamp 0.9375rem→1.25rem, same as .prompt-content)');
+    assert.ok(/\.swedish-word\s*\{\s*font-size\s*:\s*clamp\(1\.25rem,\s*6vw,\s*1\.875rem\)\s*!important\s*;/.test(b),
+      '≤768 hero word must stay the largest tier (clamp 1.25rem→1.875rem), above the titles and the long-form copy');
     assert.ok(/\.prompt-content\s*\{[^}]*max-inline-size\s*:\s*100%/.test(b),
       '≤768 prompt copy must drop the 68ch cap (full-width, no left-hug)');
     assert.ok(/\.aurora-card\s*\{[^}]*border-color\s*:\s*var\(--border-accent\)/.test(b),
       '≤768 card outline must strengthen to --border-accent');
-    assert.ok(/\.diff-row\.diff-clamped:not\(\.diff-expanded\)\s*\{[^}]*max-height/.test(b),
-      '≤768 long diffs must clamp via .diff-clamped');
-    assert.ok(/\.diff-toggle\s*\{/.test(b),
-      '≤768 must style the .diff-toggle expander');
+    assert.ok(!/\.diff-row\.diff-clamped/.test(css),
+      'diff rows must never clamp — the Visa mer 2-line clamp was removed for small Android screens');
+    assert.ok(!/\.diff-toggle\s*\{/.test(css),
+      'no .diff-toggle expander may remain — answers always render in full');
   }
 });
 
 cases.push({
-  name: 'design: mobile word-meta one row + smaller diff/hero text with whole-word wrap',
+  name: 'design: mobile word-meta one row + --fs-content tier diff text with whole-word wrap',
   fn: () => {
     assert.ok(!/\.word-meta \.ipa\s*\{\s*flex-basis\s*:\s*100%/.test(css),
       '≤480 must not push the IPA onto its own full-width row — pos/IPA/replay share one row');
@@ -1229,10 +1312,10 @@ cases.push({
       '≤480 .word-meta .ipa must be shrinkable and wrap as a whole unit (white-space: nowrap)');
     assert.ok(/\.pos-badge\s*\{[^}]*flex-shrink\s*:\s*0[^}]*white-space\s*:\s*nowrap/.test(css),
       '.pos-badge must not shrink and must wrap as a whole unit');
-    assert.ok(/\.diff-row-correct\s*\{[^}]*font-size\s*:\s*var\(--fs-sm\)/.test(css),
-      'diff correct row must step down to --fs-sm (was --fs-md)');
-    assert.ok(/\.diff-row-typed\s*\{[^}]*font-size\s*:\s*var\(--fs-2xs\)/.test(css),
-      'diff typed row must step down to --fs-2xs (was --fs-sm)');
+    assert.ok(/\.diff-row-correct\s*\{[^}]*font-size\s*:\s*var\(--fs-content\)/.test(css),
+      'diff correct row must read at the --fs-content tier (14px, same as the example and the extra-info prose)');
+    assert.ok(/\.diff-row-typed\s*\{[^}]*font-size\s*:\s*var\(--fs-content\)/.test(css),
+      'diff typed row must read at the --fs-content tier too — no more 11px small print');
     assert.ok(/\.swedish-word\s*\{[^}]*overflow-wrap\s*:\s*break-word/.test(css),
       'back hero must wrap at whole-word boundaries (overflow-wrap: break-word, not anywhere)');
     assert.ok(/\.swedish-word\s*\{[^}]*text-wrap\s*:\s*normal/.test(css),
@@ -1295,6 +1378,44 @@ cases.push({
       assert.ok(!/translate3d\([^)]*px/.test(m[0]),
         '@keyframes ' + name + ' travel must use % not px so the animation scales with the card');
     });
+  }
+});
+
+cases.push({
+  name: 'design: visual-diff rows carry 1em arrow indicators — blue into the answer, red into the typed row',
+  fn: () => {
+    assert.ok(/\.diff-row-correct::before[^{}]*\{[^}]*width\s*:\s*1em/.test(css),
+      'correct row ::before must be 1em wide — the arrow matches the font size');
+    assert.ok(/\.diff-row-typed::before[^{}]*\{[^}]*height\s*:\s*1em/.test(css),
+      'typed row ::before must be 1em tall');
+    assert.ok(/\.diff-row-correct::before[^{}]*\{[^}]*background-color\s*:\s*var\(--sweden-blue\)/.test(css),
+      'correct row arrow must be sweden-blue — the corrected-answer indicator');
+    assert.ok(/\.diff-row-typed::before\s*\{[^}]*background-color\s*:\s*var\(--diff-wrong-text\)/.test(css),
+      'typed row arrow must be diff-wrong-text red — the typed-answer indicator');
+    assert.ok(/\.diff-row-(correct|typed)::before[^{}]*\{[^}]*mask-image\s*:\s*url\('data:image\/svg\+xml,%3Csvg/.test(css),
+      'row arrows must use encoded mask-image URIs — raw brackets broke icons before');
+    assert.ok(!/\.diff-row-(correct|typed)::before[^{}]*\{[^}]*mask\s*:\s*url/.test(css),
+      'row arrows must not use the mask shorthand — its size syntax dropped a whole icon before');
+  }
+});
+
+cases.push({
+  name: 'design: card never outgrows the wrapper content box — centred at every width',
+  fn: () => {
+    assert.ok(/\.card-wrapper\s*>\s*\.aurora-card\.card-front\s*,\s*\.card-wrapper\s*>\s*\.aurora-card\.card-back\s*\{[^}]*max-width\s*:\s*100%\s*;/.test(css),
+      'face cards must cap max-width: 100% of the wrapper — viewport budgets overflowed right on tablet');
+  }
+});
+
+cases.push({
+  name: 'design: front cue hierarchy — meaning is hero, pos-badge is subordinate metadata',
+  fn: () => {
+    assert.ok(/\.pos-badge\s*\{[^}]*font-size\s*:\s*var\(--fs-xs\)/.test(css),
+      '.pos-badge must sit at --fs-xs (0.75rem) — metadata, never competing with the meaning cue');
+    assert.ok(!/\.pos-badge\s*\{[^}]*font-size\s*:\s*var\(--fs-base\)/.test(css),
+      '.pos-badge must not return to --fs-base — it tied the meaning on small screens and read as asymmetric');
+    assert.ok(/\.prompt-content\s*\{[^}]*font-size\s*:\s*clamp\(1\.0625rem/.test(css),
+      '.prompt-content must stay hero-sized (clamp from 1.0625rem) — clearly above the pos-badge tier');
   }
 });
 

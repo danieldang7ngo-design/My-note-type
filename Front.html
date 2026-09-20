@@ -26,11 +26,11 @@
             <!-- Khung Gợi ý Mặt trước (Cue Card) — meaning→word mode -->
             <div class="cue-card glass-pseudo cue-card--meaning">
                 <div class="prompt-label">Mening</div>
+                {{#meaning}}<span class="prompt-content">{{meaning}}</span>{{/meaning}}
                 <div class="meaning-row">
                     {{#pos}}<span class="pos-badge">{{pos}}</span>{{/pos}}
                     {{#audio_meaning}}<span class="sound">{{audio_meaning}}</span>{{/audio_meaning}}
                 </div>
-                {{#meaning}}<span class="prompt-content">{{meaning}}</span>{{/meaning}}
                 {{#explain}}
                 <details class="hint-reveal">
                     <summary class="hint-reveal-trigger">Mer förklaring</summary>

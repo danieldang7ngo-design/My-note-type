@@ -48,13 +48,18 @@
                     </div>
                     {{/image}}
                     {{#example}}
-                    <div class="example-box glass-pseudo">
-                        <div class="ex-text">
-                            <span>{{example}}</span>
-                            {{#audio_example}}<span class="sound">{{audio_example}}</span>{{/audio_example}}
+                    <details class="example-box example-dropdown expand-container" id="example-dropdown" open>
+                        <summary class="expand-trigger example-trigger">
+                            <span class="example-title-row">Exempel{{#audio_example}}<span class="sound example-sound">{{audio_example}}</span>{{/audio_example}}</span>
+                            <span class="expand-chevron"></span>
+                        </summary>
+                        <div class="expand-content example-copy glass-pseudo">
+                            <div class="ex-text">
+                                <span>{{example}}</span>
+                            </div>
+                            {{#example_translated}}<div class="ex-trans">{{example_translated}}</div>{{/example_translated}}
                         </div>
-                        {{#example_translated}}<div class="ex-trans">{{example_translated}}</div>{{/example_translated}}
-                    </div>
+                    </details>
                     {{/example}}
                 </div>
 
@@ -119,9 +124,32 @@
                     }
 
                     // Same predicate: {{example}} may embed an image or audio.
-                    var exBox = document.querySelector('.example-box');
-                    if (exBox && !exBox.querySelector('img,audio,video') && !exBox.textContent.trim()) {
-                        exBox.style.display = 'none';
+                    // The example is now a disclosure whose play button lives in
+                    // the title row: check the copy panel (not the whole box) so
+                    // the static "Exempel" label does not keep an empty example
+                    // alive, while a title-row sound still keeps it visible.
+                    var exBox = document.getElementById('example-dropdown');
+                    if (exBox) {
+                        var exContent = exBox.querySelector('.expand-content');
+                        var exHasMedia = exBox.querySelector('img,audio,video');
+                        if ((!exContent || !exContent.textContent.trim()) && !exHasMedia) {
+                            exBox.style.display = 'none';
+                        }
+                        // Exempel stays open by default on all widths.
+                        // The play-audio button sits inside <summary>, so clicking
+                        // it must play the sound WITHOUT toggling the disclosure.
+                        // preventDefault cancels the summary click's default
+                        // (toggling) without stopping propagation — Anki's own
+                        // replay handler (inline onclick or delegated) still runs.
+                        var exSummary = exBox.querySelector('summary');
+                        if (exSummary) {
+                            exSummary.addEventListener('click', function (e) {
+                                if (e.target && e.target.closest &&
+                                    e.target.closest('.sound, .replay-button, .soundLink')) {
+                                    e.preventDefault();
+                                }
+                            });
+                        }
                     }
                 })();
             </script>

@@ -229,10 +229,23 @@ AnkiEngine.setupEvents = function() {
             }
         }
 
-        // Digits 1-4 or letters a-d: pick an MCQ option
+        // Digits 1-4 or letters a-d: pick an MCQ option. Keystrokes aimed
+        // at an editable field pass through untouched.
+        var tgt = e.target;
+        if (tgt && (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA' || tgt.tagName === 'SELECT' || tgt.isContentEditable)) return;
         var slotMap = { '1': 0, 'a': 0, '2': 1, 'b': 1, '3': 2, 'c': 2, '4': 3, 'd': 3 };
-        if (!e.altKey && !e.ctrlKey && !e.metaKey && slotMap.hasOwnProperty(k)) {
-            var slot = slotMap[k];
+        var slot = slotMap.hasOwnProperty(k) ? slotMap[k] : -1;
+        if (slot < 0) {
+            // Layout/IME-proof fallback: physical key positions.
+            var code = e.code || '';
+            var m = /^(?:Digit|Numpad)([1-4])$/.exec(code);
+            if (m) slot = parseInt(m[1], 10) - 1;
+            else {
+                var lm = /^Key([A-D])$/.exec(code);
+                if (lm) slot = lm[1].charCodeAt(0) - 65;
+            }
+        }
+        if (!e.altKey && !e.ctrlKey && !e.metaKey && slot >= 0) {
             var btn = document.querySelector('.mcq-option-btn[data-slot="' + slot + '"]');
             if (btn && !btn.disabled) { btn.click(); e.preventDefault(); e.stopImmediatePropagation(); }
         }

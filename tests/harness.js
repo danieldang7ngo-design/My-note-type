@@ -213,7 +213,6 @@ function instrumentDiff(src) {
     'levenshteinDistance: levenshteinDistance,' +
     'levenshteinDiff: levenshteinDiff,' +
     'computeDiff: computeDiff,' +
-    'applyDiffClamp: applyDiffClamp,' +
     'computeVerdict: computeVerdict };';
   return src.slice(0, idx) + exportStmt + src.slice(idx);
 }

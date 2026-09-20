@@ -178,14 +178,16 @@ cases.push({
 });
 
 cases.push({
-  name: 'diff e2e: short-answer omission gets near-miss ("kat" vs "katt" is never "Exakt!")',
+  name: 'diff e2e: short-answer omission gets near-miss ("kat" vs "katt"), comparison view hides both row titles',
   fn: () => {
     env.win.__hnaTypedAnswerBuffer = 'kat';
     flip(env.win, backCard(), { instrumentDiff: true });
     const container = env.win.document.getElementById('visual-diff-container');
     assert.ok(!container.classList.contains('verdict-pop-correct'), '"kat" must not be verdict-pop-correct');
     const labelC = env.win.document.querySelector('#diff-section-correct .diff-row-label');
-    assert.notStrictEqual(labelC.textContent, 'Exakt!', 'a distance-1 miss must not claim an exact match');
+    assert.strictEqual(labelC.style.display, 'none', 'correct-row title hidden in comparison view');
+    const labelT = env.win.document.querySelector('#diff-section-input .diff-row-label');
+    assert.strictEqual(labelT.style.display, 'none', 'typed-row title hidden in comparison view');
     assert.ok(container.classList.contains('verdict-pop-near-miss'),
       'a one-character omission receives soft near-miss feedback (single edit, not a full error)');
   }
@@ -204,7 +206,9 @@ cases.push({
     assert.strictEqual(rowT.querySelectorAll('span.dt-wrong').length, 4, 'all 4 typed chars wrong');
     assert.strictEqual(rowC.querySelectorAll('span.dc-wrong').length, 4, 'all 4 correct chars highlighted');
     const labelC = env.win.document.querySelector('#diff-section-correct .diff-row-label');
-    assert.strictEqual(labelC.textContent, 'Det korrekta svaret');
+    assert.strictEqual(labelC.style.display, 'none', 'correct-row title hidden in comparison view');
+    const labelT = env.win.document.querySelector('#diff-section-input .diff-row-label');
+    assert.strictEqual(labelT.style.display, 'none', 'typed-row title hidden in comparison view');
   }
 });
 
@@ -441,49 +445,12 @@ cases.push({
 });
 
 cases.push({
-  name: 'diff: mobile clamp — long rows collapse with a working .diff-toggle, short rows do not',
+  name: 'diff: no mobile clamp — long rows stay fully visible with no toggle',
   fn: () => {
+    assert.strictEqual(typeof internals.applyDiffClamp, 'undefined', 'applyDiffClamp must be removed — diff rows never clamp');
     const doc = env.win.document;
-    const wrap = doc.createElement('div');
-    wrap.innerHTML =
-      '<div id="diff-correct-row" class="diff-row diff-row-correct"></div>' +
-      '<div id="diff-input-row" class="diff-row diff-row-typed"></div>';
-    doc.body.appendChild(wrap);
-    const long = doc.getElementById('diff-correct-row');
-    const short = doc.getElementById('diff-input-row');
-    Object.defineProperty(long, 'scrollHeight', { value: 120, configurable: true });
-    Object.defineProperty(short, 'scrollHeight', { value: 30, configurable: true });
-
-    const origMatchMedia = env.win.matchMedia;
-    const origGCS = env.win.getComputedStyle;
-    env.win.matchMedia = () => ({ matches: true });
-    env.win.getComputedStyle = () => ({ lineHeight: '20px' });
-
-    internals.applyDiffClamp();
-
-    assert.ok(long.classList.contains('diff-clamped'), 'long row must clamp to two lines');
-    const toggle = long.nextElementSibling;
-    assert.ok(toggle && toggle.classList.contains('diff-toggle'), 'clamped row must gain a .diff-toggle');
-    assert.strictEqual(toggle.textContent, 'Visa mer');
-    toggle.click();
-    assert.ok(long.classList.contains('diff-expanded'), 'tapping the toggle must expand the row');
-    assert.strictEqual(toggle.textContent, 'Visa mindre');
-    toggle.click();
-    assert.ok(!long.classList.contains('diff-expanded'), 'tapping again must collapse the row');
-
-    assert.ok(!short.classList.contains('diff-clamped'), 'a short row must not clamp');
-    assert.ok(!short.nextElementSibling || !short.nextElementSibling.classList.contains('diff-toggle'),
-      'a short row must not gain a toggle');
-
-    // Desktop (no match) leaves the diff untouched.
-    env.win.matchMedia = () => ({ matches: false });
-    long.classList.remove('diff-clamped', 'diff-expanded');
-    internals.applyDiffClamp();
-    assert.ok(!long.classList.contains('diff-clamped'), 'desktop must not clamp');
-
-    env.win.matchMedia = origMatchMedia;
-    env.win.getComputedStyle = origGCS;
-    wrap.parentNode.removeChild(wrap);
+    assert.strictEqual(doc.querySelectorAll('.diff-toggle').length, 0, 'no Visa mer toggle may exist');
+    assert.strictEqual(doc.querySelectorAll('.diff-clamped').length, 0, 'no clamped row may exist');
   }
 });
 
