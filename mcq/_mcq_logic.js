@@ -311,57 +311,22 @@ window.AnkiMCQ = window.AnkiMCQ || {};
     };
 
     /* ────────────────────────────────────────────────────────────
-       AUTO-FIT: thu nhỏ card vừa khít màn hình, không cần cuộn.
-       Đo chiều cao tự nhiên của card; nếu vượt viewport thì áp
-       transform: scale(k) với gốc trên-giữa (card co đều, chữ nét,
-       không bị cắt như overflow/clip).
+       MCQ LAYOUT: không co chữ (no scale-to-fit).
+       MCQ không dùng bàn phím ảo (VKB) nên thẻ được tận dụng
+       chiều dài mobile: cao tự nhiên + cuộn trang. Chỉ dọn
+       transform cũ (nếu có) để chữ luôn nét, nhất là dấu TV.
        ──────────────────────────────────────────────────────────── */
     AnkiMCQ.fitCardToViewport = function() {
         var card = document.querySelector('.aurora-card');
-        var wrapper = document.querySelector('.card-wrapper');
-        if (!card || !wrapper) return;
-
-        // offsetHeight không chịu ảnh hưởng transform → luôn là chiều cao tự nhiên
-        var natural = card.offsetHeight;
-        if (!natural) return;
-
-        var avail = window.innerHeight;
-        try {
-            var bs = window.getComputedStyle(document.body);
-            var ws = window.getComputedStyle(wrapper);
-            avail -= (parseFloat(bs.paddingTop) || 0) + (parseFloat(bs.paddingBottom) || 0);
-            avail -= (parseFloat(ws.paddingTop) || 0) + (parseFloat(ws.paddingBottom) || 0);
-        } catch (e) {}
-        avail -= 4; // biên an toàn
-
-        if (avail <= 0 || natural <= avail) {
-            // Fits or has room → no scale; CSS margin:auto centres the card
-            card.style.removeProperty('transform');
-            card.style.removeProperty('transform-origin');
-            card.style.removeProperty('margin');
-            return;
-        }
-
-        // Last-resort safety net only: the compact size pass fits the target
-        // matrix (360x640 … 1440x900) without scaling. Floor at 0.75 so type
-        // never drops below a legible size; if it still overflows, the page
-        // scrolls (html/body overflow-y:auto).
-        var MIN_SCALE = 0.75;
-        var scale = Math.max(avail / natural, MIN_SCALE);
-
-        // Scale from the centre so the card stays optically centred. Do NOT
-        // force margin here — CSS margin:auto already centres the flex item
-        // and collapses to 0 on overflow (overflow-safe centering).
-        card.style.transformOrigin = 'center center';
-        card.style.transform = 'scale(' + scale + ')';
+        if (!card) return;
+        card.style.removeProperty('transform');
+        card.style.removeProperty('transform-origin');
+        card.style.removeProperty('margin');
     };
 
-    // Gọi lại vài lần: sau render, sau khi font / ảnh / MathJax load xong
+    // Giữ API cũ: gọi 1 lần để dọn transform sau render.
     AnkiMCQ.scheduleFit = function() {
         AnkiMCQ.fitCardToViewport();
-        setTimeout(AnkiMCQ.fitCardToViewport, 120);
-        setTimeout(AnkiMCQ.fitCardToViewport, 450);
-        setTimeout(AnkiMCQ.fitCardToViewport, 1200);
     };
 
     // Xoay màn hình / đổi kích thước cửa sổ → tính lại
