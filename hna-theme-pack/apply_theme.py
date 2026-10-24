@@ -207,7 +207,7 @@ def build_css_block(slug, light_vars, dark_vars):
     return block
 
 
-def strip_existing_theme_block(css_text):
+def strip_existing_theme_block(css_text, warn=True):
     """Xoa khoi theme (bat ky slug nao) da ton tai trong CSS, tra ve CSS sach.
 
     Script LUON ghi khoi theme o cuoi file, nen sau khi go cac khoi tron ven ma
@@ -219,8 +219,9 @@ def strip_existing_theme_block(css_text):
     stray = STRAY_THEME_START_RE.search(cleaned)
     if stray:
         dropped = len(cleaned) - stray.start()
-        print("      [!] Phat hien khoi theme hong (thieu marker END) — da go {} byte. "
-              "Ban CSS truoc khi ghi nam trong hna-theme-pack/backups/.".format(dropped))
+        if warn:
+            print("      [!] Phat hien khoi theme hong (thieu marker END) — da go {} byte. "
+                  "Ban CSS truoc khi ghi nam trong hna-theme-pack/backups/.".format(dropped))
         cleaned = cleaned[:stray.start()]
     return cleaned.rstrip() + "\n"
 

@@ -166,6 +166,7 @@ regenerate (see [Source of truth](#source-of-truth)).
 
 - Node.js 20+
 - npm
+- Python 3.8+ (only for the theme-pack contract gate, `npm run test:themes`)
 
 ### Install
 
@@ -184,6 +185,9 @@ npm run test:all
 
 # Rebuild the three paste-ready files (Front / Back / Styling) after source changes
 npm run build:templates
+
+# Theme pack ↔ styling contract (token names, all 100 themes build, no block stacking)
+npm run test:themes
 
 # Rebuild both generated review artifacts after source changes
 rm -f preview/preview.html mcq/preview/preview_mcq.html

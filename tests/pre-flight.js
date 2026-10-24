@@ -688,6 +688,24 @@ cases.push({
   }
 });
 
+// The theme pack writes into the Styling field, so it depends on the CSS token
+// contract (variable names) and on the theme-block markers. Both are things a
+// future styling/template edit can silently break, so the contract is a gate.
+cases.push({
+  name: 'preflight: theme pack still matches the styling token contract',
+  fn() {
+    const script = path.join(ROOT, 'hna-theme-pack', 'verify_theme_contract.py');
+    assertTrue(fs.existsSync(script), 'hna-theme-pack/verify_theme_contract.py missing');
+    const run = spawnSync('python3', [script, '--quiet'], { encoding: 'utf8' });
+    if (run.error) {
+      throw new Error('python3 unavailable, cannot verify the theme contract: ' + run.error.message);
+    }
+    if (run.status !== 0) {
+      throw new Error('theme contract broken —\n' + (run.stdout || '').trim() + (run.stderr || ''));
+    }
+  }
+});
+
 function assertTrue(cond, msg) {
   if (!cond) throw new Error(msg);
 }
