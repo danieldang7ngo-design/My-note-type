@@ -134,3 +134,25 @@ mỗi lần áp theme qua `build_mesh_css_vars()`, xem mục 1). Sau đó
 chạy lại `python3 recompute_themes.py` trong `hna-theme-pack/` để cập nhật
 các token dẫn xuất và báo cáo tương phản (script này đọc whitelist trực tiếp
 từ `_hna_styles_v7.css` gốc ở thư mục cha, không hardcode danh sách biến).
+
+## Áp theme nhiều lần — CSS có phình ra không?
+
+Không. `apply_theme.py` **gỡ khối theme cũ trước khi ghi khối mới**:
+`strip_existing_theme_block()` bắt mọi cặp `/* === THEME:<slug>:START === */ …
+/* === THEME:<slug>:END === */` bất kể slug nào, rồi mới nối khối mới vào cuối
+styling. Đo trên `dist/styling.css` (101 124 byte / 89 dòng):
+
+| Thao tác | Kết quả |
+|---|---|
+| base (chưa theme) | 101 124 byte, 0 khối |
+| áp theme #1 | 1 khối, 167 dòng (~130,3 KB tuỳ theme) |
+| áp theme #2, #3, #4, #5 | vẫn **1 khối**, vẫn 167 dòng — không tăng |
+| áp lại đúng theme cũ | ra đúng kích thước cũ (idempotent) |
+| "0 = khôi phục mặc định" | về đúng base, byte-for-byte |
+
+Một trường hợp có thể sinh dead code: khối theme **mất marker END** (bị cắt
+khi paste tay, hoặc sửa CSS bằng tay) thì regex cặp START/END không khớp và
+khối cũ sẽ nằm lại. Từ bản này, marker `START` còn sót sau khi gỡ khối trọn
+vẹn bị coi là khối hỏng: script gỡ luôn phần đó đến hết file và in cảnh báo
+(± byte đã gỡ). Bản CSS trước khi ghi luôn được backup vào `backups/` nên
+phần bị gỡ vẫn khôi phục được.

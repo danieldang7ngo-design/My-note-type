@@ -40,6 +40,11 @@ ANY_MARKER_BLOCK_RE = re.compile(
     r"\n?/\* === THEME:[a-zA-Z0-9_\-]+:START === \*/.*?/\* === THEME:[a-zA-Z0-9_\-]+:END === \*/\n?",
     re.DOTALL,
 )
+# Mot khoi theme ma mat marker END (bi cat khi paste tay, hoac ai do sua CSS
+# bang tay) thi regex tren khong khop -> khoi cu nam lai vinh vien va MOI lan
+# doi theme lai cong them mot khoi 29 KB. Regex nay chi tim marker START con
+# sot lai SAU khi da go cac khoi tron ven.
+STRAY_THEME_START_RE = re.compile(r"\n?/\* === THEME:[a-zA-Z0-9_\-]+:START === \*/")
 
 # Cho phep tat mau bang bien moi truong NO_COLOR (quy uoc chuan: no-color.org)
 # hoac khi output khong phai la mot terminal thuc su (vd bi redirect ra file).
@@ -203,8 +208,21 @@ def build_css_block(slug, light_vars, dark_vars):
 
 
 def strip_existing_theme_block(css_text):
-    """Xoa khoi theme (bat ky slug nao) da ton tai trong CSS, tra ve CSS sach."""
-    return ANY_MARKER_BLOCK_RE.sub("\n", css_text).rstrip() + "\n"
+    """Xoa khoi theme (bat ky slug nao) da ton tai trong CSS, tra ve CSS sach.
+
+    Script LUON ghi khoi theme o cuoi file, nen sau khi go cac khoi tron ven ma
+    van con marker START thi do la khoi hong (mat END) — bo luon phan tu do den
+    het file, neu khong moi lan doi theme se cong don dead code. Ban CSS truoc
+    khi ghi da duoc backup, nen phan bi bo van khoi phuc duoc.
+    """
+    cleaned = ANY_MARKER_BLOCK_RE.sub("\n", css_text)
+    stray = STRAY_THEME_START_RE.search(cleaned)
+    if stray:
+        dropped = len(cleaned) - stray.start()
+        print("      [!] Phat hien khoi theme hong (thieu marker END) — da go {} byte. "
+              "Ban CSS truoc khi ghi nam trong hna-theme-pack/backups/.".format(dropped))
+        cleaned = cleaned[:stray.start()]
+    return cleaned.rstrip() + "\n"
 
 
 # ----------------------------------------------------------------------
