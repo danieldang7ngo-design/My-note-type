@@ -264,6 +264,11 @@ Located in `tests/ui/`:
 - **AnkiDroid:** QtWebEngine 5.12+ (ES5 required, unicode regex built at runtime)
 - **AnkiMobile:** WebKit-based (iOS Safari equivalent)
 - **AnkiWeb:** Modern browsers only
+- **Distribution is three files, not eight.** `build/anki-templates.js`
+  inlines every module into `dist/Front.html` / `dist/Back.html` and emits
+  `dist/styling.css` (+ `dist/mcq/…`) — one paste per Anki slot, and the only
+  remaining media files are the two fonts. Root modules remain the source of
+  truth; `dist/` is generated and gated for freshness.
 - **Script loading differs by platform.** Desktop Anki evaluates the template's
   `<script src>` tags. AnkiWeb and AnkiMobile insert the card HTML instead, so
   those tags never execute — both templates (and both MCQ templates) end with

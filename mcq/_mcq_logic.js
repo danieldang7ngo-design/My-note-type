@@ -17,7 +17,7 @@ window.AnkiMCQ = window.AnkiMCQ || {};
         for (var i = 0; i < elements.length; i++) {
             var el = elements[i];
             var text = (el.textContent || el.innerText || '').replace(/^\s+|\s+$/g, '');
-            if (text.length > 0 && text.indexOf('{{') === -1) {
+            if (text.length > 0 && text.indexOf('{' + '{') === -1) {
                 choices.push({ text: text, isCorrect: el.getAttribute('data-correct') === 'true' });
             }
         }

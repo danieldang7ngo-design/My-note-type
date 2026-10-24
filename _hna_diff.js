@@ -28,7 +28,7 @@
         if (!rowT || !rowC) return false;
         if (rowC.dataset.hnaRendered === '1') return true;
 
-        // ".swedish-word logic": {{word}} reaches span.swedish-word on the Back
+        // ".swedish-word logic": the word field reaches span.swedish-word on the Back
         // face as raw HTML — a <br> in the note field renders there as a REAL
         // line break. Reading .textContent silently drops <br>
         // ("katt<br>hund" -> "katthund"), fusing multi-line answers into one

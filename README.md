@@ -101,35 +101,50 @@ Field **order matters** (the engine maps the template placeholders directly):
 
 ## Installation into Anki
 
+An Anki note type only has **three** paste slots — Front template, Back
+template, Styling. The `dist/` folder is exactly those three files per note
+type, with all JavaScript **inlined** into the templates, so there is nothing
+else to copy (except the two font files):
+
+```
+dist/Front.html        -> Cards… > Front template
+dist/Back.html         -> Cards… > Back template
+dist/styling.css       -> Cards… > Styling
+dist/mcq/*             -> same three slots of the MCQ note type
+```
+
+Why inlined: AnkiWeb and AnkiMobile build a card by inserting HTML, so a
+`<script src="…">` that arrives inside a template never runs — the JS has to
+be inline (or injected from an inline script). Shipping the JS inline removes
+media sync, cache and relative-path failures in one go. See
+[`docs/BUG_LOG.md`](docs/BUG_LOG.md) BUG-056 / BUG-057.
+
 ### HNA Typing
 
 1. Anki → Tools → Manage Note Types → Add → Clone: *Basic* → create the note
    type.
 2. Set the fields listed above (names matter — they map to the template
    placeholders).
-3. Open **Cards…**:
-   - Front template: paste `Front.html`
-   - Back template: paste `Back.html`
-   - Styling: paste `_hna_styles_v7.css`
-4. Copy into Anki's media folder (`collection.media`):
-   `_hna_storage.js`, `_hna_engine.js`, `_hna_diff.js`, `_hna_typing.js`,
-   `_hna_aurora.js`, `_hna_styles_v7.css`, `_Inter.ttf`, `_JetBrainsMono.ttf`.
+3. Open **Cards…** and paste the three files:
+   - Front template: `dist/Front.html`
+   - Back template: `dist/Back.html`
+   - Styling: `dist/styling.css`
+4. Copy only the two fonts into Anki's media folder (`collection.media`):
+   `_Inter.ttf`, `_JetBrainsMono.ttf`. Without them the layout falls back to
+   system fonts; nothing else breaks.
 
 ### HNA MCQ
 
 1. Create a note type (clone of *Basic*) named e.g. "HNA MCQ".
 2. Set the fields above in the order given.
 3. Open **Cards…**:
-   - Front template: paste `mcq/Front.html`
-   - Back template: paste `mcq/Back.html`
-   - Styling: paste `mcq/_mcq_styles.css`
-4. Copy into media: `mcq/_mcq_storage.js`, `mcq/_mcq_engine.js`,
-   `mcq/_mcq_logic.js`, `mcq/_mcq_aurora.js`, `mcq/_mcq_styles.css`,
-   `mcq/_Inter.ttf`, `mcq/_JetBrainsMono.ttf`.
+   - Front template: `dist/mcq/Front.html`
+   - Back template: `dist/mcq/Back.html`
+   - Styling: `dist/mcq/styling.css`
+4. Same two font files in media (`mcq/_Inter.ttf`, `mcq/_JetBrainsMono.ttf`).
 
-> Use the **minified CSS** for the smallest upload:
-> `publish/_hna_styles_v7.css` and `publish/mcq/_mcq_styles.css` (see
-> [Release](#release-pipeline)).
+> Regenerate `dist/` after any source change: `npm run build:templates`
+> (the release gate fails on a stale `dist/`).
 
 ## Keyboard shortcuts
 
@@ -166,6 +181,9 @@ npm run test:unit
 
 # Full release-quality suite
 npm run test:all
+
+# Rebuild the three paste-ready files (Front / Back / Styling) after source changes
+npm run build:templates
 
 # Rebuild both generated review artifacts after source changes
 rm -f preview/preview.html mcq/preview/preview_mcq.html
@@ -224,6 +242,7 @@ breakdown and the per-change "which gates to re-run" table.
 | Typing runtime | `_hna_typing.js`, `_hna_diff.js` | No |
 | MCQ logic | `mcq/_mcq_logic.js`, `mcq/_mcq_engine.js` | No |
 | Preview | `preview/preview.html`, `mcq/preview/preview_mcq.html` | **Yes** — `node preview/build-preview.js`, `node mcq/preview/build-preview.js` |
+| Paste-ready note type | `dist/Front.html`, `dist/Back.html`, `dist/styling.css` (+ `dist/mcq/`) | **Yes** — `node build/anki-templates.js` |
 | Publish bundle | `publish/` | **Yes** — `node tests/run-all.js --publish` |
 
 ## Repository layout
@@ -244,6 +263,8 @@ Note-type/
 │   ├── _mcq_engine.js / _mcq_logic.js / _mcq_storage.js / _mcq_aurora.js
 │   ├── _mcq_styles.css
 │   ├── preview/  docs/  tests/
+├── build/anki-templates.js  # Inlines the JS into dist/ (the 3 paste slots)
+├── dist/                    # Generated: Front.html + Back.html + styling.css
 ├── preview/                 # Generated typing preview (build-preview.js)
 ├── publish/                 # Generated release bundle + SHA256SUMS.txt
 ├── tests/                   # run-all.js + unit / mcq / ram / design / ui buckets

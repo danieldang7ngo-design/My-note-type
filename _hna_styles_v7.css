@@ -58,7 +58,7 @@
 /* ============================================================
    ANKIWEB PARITY
    AnkiWeb is the one surface that does not render Anki's own
-   typing/sound markup: {{type:Field}} becomes an empty string and
+   typing/sound markup: type:Field becomes an empty string and
    [sound:] becomes a native <audio controls>. These two rules make
    the shipped fallbacks invisible to desktop and collapse the native
    player once _hna_engine.js has built the styled .replay-button.
@@ -67,7 +67,7 @@
 .hna-audio-source { position: absolute !important; width: 1px !important; height: 1px !important; opacity: 0 !important; pointer-events: none !important; overflow: hidden !important; clip-path: inset(50%) !important; }
 
 /* AnkiWeb with card JS blocked (or _hna_typing.js never arriving): Anki's
-   {{type:Field}} input does not exist there, so the invisible-layer design
+   type:Field input does not exist there, so the invisible-layer design
    would leave a blank box. :has() detects the missing native field with zero
    JS and turns our own field into a real, typable input. The typing module
    adds html.hna-typing the moment its overlay is live, which switches this

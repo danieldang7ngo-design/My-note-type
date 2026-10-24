@@ -53,7 +53,7 @@
     };
     document.addEventListener('selectionchange', window.__hnaSelectionListener);
 
-    // AnkiWeb does not support {{type:Field}}: the token renders as an EMPTY
+    // AnkiWeb does not support type:Field: the token renders as an EMPTY
     // STRING, so Anki never injects input#typeans there. Every retry below
     // then ran out against nothing and the wrapper stayed blank — no caret,
     // no way to type. Front.html ships its own field for that case; it is
@@ -185,7 +185,7 @@
         input.setAttribute('autocomplete', 'off');
         input.setAttribute('spellcheck', 'false');
 
-        // ".swedish-word logic": {{word}} renders into span.swedish-word on
+        // ".swedish-word logic": the word field renders into span.swedish-word on
         // the Back face as raw HTML, so a <br> in the note field shows there
         // as a REAL line break. The overlay now does the same — the shared
         // parser keeps <br> as \n instead of dropping it with the tags, and
@@ -546,7 +546,7 @@
 
     }
 
-    // Delay to let Anki inject the {{type:word}} input; the retry fallback
+    // Delay to let Anki inject the type:word input; the retry fallback
     // inside initTypeAnswer covers delayed injection. The old
     // document.readyState === 'loading' branch is dead code inside Anki (the
     // webview is long since complete when a card renders) and registered an

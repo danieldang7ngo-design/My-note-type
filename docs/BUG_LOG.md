@@ -1126,6 +1126,31 @@ should be appended here with a date.
   `stylesheet keeps the no-JS typing fallback`; `tests/ui/dom.test.js` asserts
   `html.hna-typing` is set on both paths.
 
+### BUG-057 — ship the note type as the three files Anki actually has
+- **Date**: 2026-10-24
+- **Files**: `build/anki-templates.js` (new), `dist/**` (generated),
+  `package.json`, `README.md`, `tests/pre-flight.js`
+- **Symptom**: even with the BUG-056 bootstrap in place, installation stayed
+  fragile: five media JS files + one CSS had to be uploaded and synced before
+  a card worked, on every device, with no feedback when one was missing or
+  cached, and the bootstrap still assumed inline scripts execute on the target.
+- **Root cause**: the note type was distributed as eight media files, but Anki
+  only guarantees three slots (Front, Back, Styling). A `<script src>` in a
+  template is already proven not to run on AnkiWeb/AnkiMobile (BUG-056), so
+  every extra media file was a new way for the card to render dead.
+- **Fix**: `npm run build:templates` inlines the modules into the two
+  templates and emits `dist/Front.html`, `dist/Back.html`, `dist/styling.css`
+  (+ `dist/mcq/…`), i.e. exactly one paste per slot and nothing to copy to
+  media except the two fonts. The build refuses to emit a template if an
+  inlined module contains `{{` (Anki substitutes field tokens everywhere,
+  including inside `<script>`) or `</script`; the bootstrap block is dropped
+  because there is nothing external left to load. Source of truth stays the
+  root modules and stylesheet.
+- **Regression guard**: `tests/pre-flight.js` — `dist/ holds the 3
+  paste-ready files, self-contained and fresh` (no `<script src>` /
+  `<link href>` left, modules inlined in order, brace-free module bodies,
+  Front/Back module parity, freshness against every input + the builder).
+
 ## Open / latent issues
 
 ### ISSUE-001 — `window.__hnaIsTypingTimer` cleared only in typing module

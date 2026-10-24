@@ -65,7 +65,7 @@ AnkiEngine.tokenizeAnswer = function (answer) {
     return tokens;
 };
 
-// Shared answer-field parser — the ".swedish-word logic". {{word}} reaches
+// Shared answer-field parser — the ".swedish-word logic". The word field reaches
 // span.swedish-word as RAW HTML on the Back face, so a <br> in the note
 // field renders there as a REAL line break. Reading .textContent instead
 // silently deletes <br> ("katt<br>hund" -> "katthund"), which fused
@@ -294,8 +294,8 @@ AnkiEngine.toggleSettings = function (e) {
     if (menu) menu.classList.toggle('active');
 };
 
-// Focus the typing field. It is Anki's {{type:word}} input on desktop and our
-// own #hna-type-input on AnkiWeb, which does not support {{type:Field}}.
+// Focus the typing field. It is Anki's type:word input on desktop and our
+// own #hna-type-input on AnkiWeb, which does not support type:Field.
 // Hidden fields are skipped so a Back card (neither field live) still lets
 // Ctrl+J fall through to Anki instead of being swallowed.
 AnkiEngine.focusTypingInput = function () {

@@ -11,6 +11,7 @@
     "test:design": "node tests/run-all.js --design",
     "test:ui": "node tests/run-all.js --ui",
     "test:all": "node tests/run-all.js",
+    "build:templates": "node build/anki-templates.js",
     "preview:build": "node preview/build-preview.js",
     "release:check": "node tests/run-all.js --publish"
   }
