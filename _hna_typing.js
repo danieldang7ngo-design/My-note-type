@@ -74,6 +74,29 @@
         return fallback;
     }
 
+    // requestAnimationFrame is throttled to nothing in a background tab and on
+    // some webviews it can be held while the card is being laid out. The
+    // reveal must not depend on it alone: this one-shot timer forces the
+    // fallback field visible shortly after the card appears, which is the
+    // difference between "no cursor anywhere" and a usable box.
+    var _safetyTimer = null;
+    function scheduleSafetyReveal() {
+        if (_safetyTimer || _fallbackRevealed) return;
+        _safetyTimer = window.__hnaTypingSafetyTimer = setTimeout(function () {
+            _safetyTimer = null;
+            window.__hnaTypingSafetyTimer = null;
+            if (_fallbackRevealed) return;
+            _retryCount = NATIVE_TYPEANS_FRAMES;
+            initTypeAnswer();
+        }, 400);
+    }
+
+    function markEnhanced() {
+        var root = document.documentElement;
+        if ((' ' + root.className + ' ').indexOf(' hna-typing ') !== -1) return;
+        root.className = (root.className + ' hna-typing').replace(/^\s+/, '');
+    }
+
     function initTypeAnswer() {
         var input = resolveTypingInput();
         var overlay = document.getElementById('typeans-overlay');
@@ -86,6 +109,7 @@
         if (!overlay) return;
 
         if (!input) {
+            scheduleSafetyReveal();
             if (_retryCount < 100) {
                 _retryCount++;
                 _retryRAF = requestAnimationFrame(initTypeAnswer);
@@ -102,6 +126,10 @@
         }
 
         window.__hnaActiveTypeansInput = input;
+
+        // Tells the stylesheet the enhanced path is live, switching off the
+        // no-JS fallback field (see the ANKIWEB PARITY block in the CSS).
+        markEnhanced();
 
         // Persist what the user typed. The in-memory buffer is the source of
         // truth for the Back-face diff; storage is only a crash fallback.

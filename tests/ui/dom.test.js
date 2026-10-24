@@ -232,6 +232,8 @@ cases.push({
     const fallback = doc.getElementById('hna-type-input');
     assert.ok(fallback, 'front template must ship its own typing field for AnkiWeb');
     assert.ok(!fallback.hasAttribute('hidden'), 'fallback must be revealed once Anki\'s input is proven absent');
+    assert.ok(doc.documentElement.className.indexOf('hna-typing') !== -1,
+      'the enhanced path must mark <html> so the stylesheet no-JS fallback switches off');
     // The overlay is the visible typing area: without it the wrapper is a
     // blank box with no caret (the reported AnkiWeb symptom).
     let stats = overlayStats(e2.win);
@@ -256,6 +258,8 @@ cases.push({
     assert.ok(fallback, 'fallback input must exist in the template');
     assert.ok(fallback.hasAttribute('hidden'), 'fallback must stay hidden on desktop');
     assert.ok(win.document.querySelector('input#typeans'), 'desktop typing input must be the Anki one');
+    assert.ok(win.document.documentElement.className.indexOf('hna-typing') !== -1,
+      'desktop must mark <html> too, so the no-JS rule can never expose the fallback');
     assert.strictEqual(win.AnkiEngine.focusTypingInput(), true, 'Ctrl+J must find Anki\'s input');
     // Two live inputs would split keystrokes between them.
     assert.ok(win.document.activeElement === win.document.querySelector('input#typeans'),

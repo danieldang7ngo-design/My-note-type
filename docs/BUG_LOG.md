@@ -1096,6 +1096,36 @@ should be appended here with a date.
   gets the styled replay button (icon parity)` (button injected, native
   element hidden, click drives `play()`, exactly one button per sound).
 
+### BUG-056 — nothing ran on AnkiWeb: card `<script src>` tags never execute there
+- **Date**: 2026-10-24
+- **Files**: `Front.html`, `Back.html`, `mcq/Front.html`, `mcq/Back.html`,
+  `_hna_typing.js`, `_hna_styles_v7.css`, `tests/pre-flight.js`,
+  `tests/ui/dom.test.js`
+- **Symptom**: after BUG-054/055 shipped, AnkiWeb was still untouched — blank
+  typing box, native audio pill, and (untested but implied) a dead settings
+  gear, while desktop was perfect.
+- **Root cause**: AnkiWeb and AnkiMobile build the card by **inserting HTML**
+  into `#qa`, so a `<script src="…">` tag that arrives inside the template
+  never executes — inline `<script>` bodies do (that is why JS decks that
+  inject their libraries manually work there). Every module this note type
+  ships was therefore inert on those two platforms: `input#typeans` was
+  missing *and* `_hna_typing.js` never ran to reveal`#hna-type-input`, so both
+  BUG-054 fixes were dead code on the very platform they targeted.
+- **Fix**: each template ends with an inline bootstrap that, when the first
+  module's global is absent, loads the chain itself with `createElement`
+  (`onload`/`onerror` chained, boot token aborts a stale chain) — once **per
+  card**, because the injected modules must re-init per card exactly like the
+  desktop re-evaluation. Desktop sees its globals already present and skips.
+  Plus a zero-JS safety net: `html:not(.hna-typing)
+  .type-input-wrapper:not(:has(input#typeans)) #hna-type-input` turns the
+  fallback field into a real, typable input whenever the typing module never
+  marks the document (engines without `:has()` drop the rule and keep the
+  `[hidden]` default, so desktop can never get two live inputs).
+- **Regression guard**: `tests/pre-flight.js` — `every template ships the
+  script-injection fallback` (probe, file list and order, boot token) and
+  `stylesheet keeps the no-JS typing fallback`; `tests/ui/dom.test.js` asserts
+  `html.hna-typing` is set on both paths.
+
 ## Open / latent issues
 
 ### ISSUE-001 — `window.__hnaIsTypingTimer` cleared only in typing module

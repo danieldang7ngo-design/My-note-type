@@ -65,3 +65,23 @@
    ============================================================ */
 #hna-type-input[hidden] { display: none !important; }
 .hna-audio-source { position: absolute !important; width: 1px !important; height: 1px !important; opacity: 0 !important; pointer-events: none !important; overflow: hidden !important; clip-path: inset(50%) !important; }
+
+/* AnkiWeb with card JS blocked (or _hna_typing.js never arriving): Anki's
+   {{type:Field}} input does not exist there, so the invisible-layer design
+   would leave a blank box. :has() detects the missing native field with zero
+   JS and turns our own field into a real, typable input. The typing module
+   adds html.hna-typing the moment its overlay is live, which switches this
+   off; engines without :has() drop the whole rule and keep the [hidden]
+   default, so desktop can never end up with two live inputs. */
+html:not(.hna-typing) .type-input-wrapper:not(:has(input#typeans)) #hna-type-input {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    opacity: 1 !important;
+    caret-color: var(--caret-glow) !important;
+    color: var(--typing-overlay-text) !important;
+    background: transparent !important;
+    font-family: var(--font-mono) !important;
+    text-align: center !important;
+}

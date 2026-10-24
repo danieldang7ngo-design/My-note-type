@@ -71,7 +71,28 @@
 <script src="_mcq_logic.js"></script>
 <script src="_mcq_aurora.js"></script>
 <script>
-(function() {
-    AnkiMCQ.initBack();
+(function () {
+    var FILES = ['_mcq_storage.js', '_mcq_engine.js', '_mcq_logic.js', '_mcq_aurora.js'];
+    function start() {
+        if (window.AnkiMCQ && typeof AnkiMCQ.initBack === 'function') AnkiMCQ.initBack();
+    }
+    // Same AnkiWeb/AnkiMobile gap as the typing note type: a <script src>
+    // inside an inserted card never runs, dynamically created nodes do.
+    if (typeof window.__mcqScriptMode === 'undefined') {
+        window.__mcqScriptMode = (typeof window.AnkiMCQ !== 'undefined' && typeof AnkiMCQ.initBack === 'function') ? 'static' : 'inject';
+    }
+    if (window.__mcqScriptMode === 'static') { start(); return; }
+    var token = window.__mcqBootToken = (window.__mcqBootToken || 0) + 1;
+    var i = 0;
+    function next() {
+        if (token !== window.__mcqBootToken) return;
+        if (i >= FILES.length) { start(); return; }
+        var s = document.createElement('script');
+        s.src = FILES[i++];
+        s.onload = next;
+        s.onerror = next;
+        (document.head || document.documentElement).appendChild(s);
+    }
+    next();
 })();
 </script>

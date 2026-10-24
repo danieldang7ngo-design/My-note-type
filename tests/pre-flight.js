@@ -562,6 +562,54 @@ cases.push({
   }
 });
 
+// AnkiWeb and AnkiMobile insert the card HTML instead of parsing it as a
+// document, so a <script src> tag that arrives inside the template never runs
+// (inline scripts do). Without the injection fallback every module is inert
+// there: blank typing box, native audio player, no settings menu.
+cases.push({
+  name: 'preflight: every template ships the script-injection fallback (AnkiWeb / AnkiMobile)',
+  fn() {
+    const specs = [
+      { file: 'Front.html', mode: '__hnaScriptMode', global: 'AnkiEngine',
+        files: ['_hna_storage.js', '_hna_engine.js', '_hna_diff.js', '_hna_typing.js', '_hna_aurora.js'] },
+      { file: 'Back.html', mode: '__hnaScriptMode', global: 'AnkiEngine',
+        files: ['_hna_storage.js', '_hna_engine.js', '_hna_diff.js', '_hna_typing.js', '_hna_aurora.js'] },
+      { file: 'mcq/Front.html', mode: '__mcqScriptMode', global: 'AnkiMCQ',
+        files: ['_mcq_storage.js', '_mcq_engine.js', '_mcq_logic.js', '_mcq_aurora.js'] },
+      { file: 'mcq/Back.html', mode: '__mcqScriptMode', global: 'AnkiMCQ',
+        files: ['_mcq_storage.js', '_mcq_engine.js', '_mcq_logic.js', '_mcq_aurora.js'] }
+    ];
+    specs.forEach((spec) => {
+      const src = stripHtmlComments(read(spec.file));
+      assertTrue(src.indexOf('window.' + spec.mode) !== -1,
+        spec.file + ': no script-injection fallback (window.' + spec.mode + ' missing)');
+      assertTrue(src.indexOf("typeof window." + spec.global + " !== 'undefined'") !== -1,
+        spec.file + ': fallback must probe window.' + spec.global + ' before injecting');
+      assertTrue(src.indexOf('createElement') !== -1,
+        spec.file + ': fallback must create script nodes dynamically');
+      const list = spec.files.map((f) => "'" + f + "'").join(', ');
+      assertTrue(src.indexOf('[' + list + ']') !== -1,
+        spec.file + ': injected file list/order must stay ' + list);
+      // A stale chain must abort, or a fast flip double-initialises one card.
+      assertTrue(/token !== window\.__\w*BootToken/.test(src),
+        spec.file + ': injection chain needs the boot-token abort');
+    });
+  }
+});
+
+cases.push({
+  name: 'preflight: stylesheet keeps the no-JS typing fallback (AnkiWeb with scripts blocked)',
+  fn() {
+    const css = read('_hna_styles_v7.css');
+    assertTrue(/html:not\(\.hna-typing\)[^{]*:not\(:has\(input#typeans\)\)[^{]*#hna-type-input/.test(css),
+      'missing the no-JS rule that turns #hna-type-input into a real typable field');
+    assertTrue(css.indexOf('opacity: 1 !important') !== -1,
+      'the no-JS field must override the invisible-layer opacity');
+    assertTrue(/#hna-type-input\[hidden\]\s*\{\s*display:\s*none/.test(css),
+      'the [hidden] default must survive, or desktop gets two live inputs');
+  }
+});
+
 function assertTrue(cond, msg) {
   if (!cond) throw new Error(msg);
 }

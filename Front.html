@@ -84,6 +84,36 @@
 <!-- Independent of the modules above — creates/repositions the aurora
      singleton in <body>, outside the region Anki swaps each card. -->
 <script src="_hna_aurora.js"></script>
+
+<!-- AnkiWeb and AnkiMobile build the card by INSERTING html: a <script src>
+     tag that arrives that way never executes, so the five modules above are
+     inert there (desktop Anki evaluates them per card). Dynamically created
+     script nodes DO run on every platform, so boot the chain ourselves —
+     every card, because the injected modules must re-init per card exactly
+     like the desktop reload does. Desktop never enters this block. -->
+<script>
+(function () {
+    var FILES = ['_hna_storage.js', '_hna_engine.js', '_hna_diff.js', '_hna_typing.js', '_hna_aurora.js'];
+    if (typeof window.__hnaScriptMode === 'undefined') {
+        window.__hnaScriptMode = (typeof window.AnkiEngine !== 'undefined') ? 'static' : 'inject';
+    }
+    if (window.__hnaScriptMode === 'static') return;
+    // A flip while the chain is still loading must abandon the stale chain,
+    // otherwise two boots would initialise the same card twice.
+    var token = window.__hnaBootToken = (window.__hnaBootToken || 0) + 1;
+    var i = 0;
+    function next() {
+        if (token !== window.__hnaBootToken) return;
+        if (i >= FILES.length) return;
+        var s = document.createElement('script');
+        s.src = FILES[i++];
+        s.onload = next;
+        s.onerror = next;
+        (document.head || document.documentElement).appendChild(s);
+    }
+    next();
+})();
+</script>
 <script>
 (function() {
     var det = document.querySelector('.hint-reveal');

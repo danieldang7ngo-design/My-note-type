@@ -264,6 +264,15 @@ Located in `tests/ui/`:
 - **AnkiDroid:** QtWebEngine 5.12+ (ES5 required, unicode regex built at runtime)
 - **AnkiMobile:** WebKit-based (iOS Safari equivalent)
 - **AnkiWeb:** Modern browsers only
+- **Script loading differs by platform.** Desktop Anki evaluates the template's
+  `<script src>` tags. AnkiWeb and AnkiMobile insert the card HTML instead, so
+  those tags never execute — both templates (and both MCQ templates) end with
+  an inline bootstrap that re-loads the same files through
+  `document.createElement('script')` whenever `window.AnkiEngine` /
+  `window.AnkiMCQ` is absent, once per card. Inline `<script>` bodies DO run
+  there, which is what makes the bootstrap possible. A no-JS stylesheet rule
+  (`html:not(.hna-typing) … :has(input#typeans)`) keeps the typing field a
+  real, typable input if the modules never arrive at all.
 
 ## File Organization
 

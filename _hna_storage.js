@@ -18,6 +18,12 @@
 // Clear typing-overlay state from previous card (prevents stale globals)
 window.__hnaActiveTypeansInput = null;
 window.__hnaScheduleTypeansUpdate = null;
+// Forced-reveal timer from _hna_typing.js: a pending one would fire against the
+// next card. Cleared here so every per-card handle is released in one place.
+if (window.__hnaTypingSafetyTimer) {
+    clearTimeout(window.__hnaTypingSafetyTimer);
+    window.__hnaTypingSafetyTimer = null;
+}
 
 // NOTE: AnkiAudio.close() used to run here on every flip. Closing + reopening an
 // AudioContext per card churns a device thread each time; one context reused for
