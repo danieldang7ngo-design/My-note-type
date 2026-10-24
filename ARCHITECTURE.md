@@ -59,6 +59,12 @@ Generated files must never be edited directly; changes to source files require r
   - `decodeHTML()` - Safe HTML entity decoding
   - `toggleSettings()` - Show/hide settings menu
   - `MENU_SPEC` - Settings menu definition (shared by both note types)
+  - `skinAudio()` - Turns a native `<audio>` (what AnkiWeb emits for
+    `[sound:…]`) into Anki's `button.replay-button` shape so the styled play
+    icon applies on every platform; desktop's own replay button is left alone
+  - `focusTypingInput()` - Focuses whichever typing field exists
+    (`input#typeans` on desktop, `#hna-type-input` on AnkiWeb); hidden fields
+    are skipped so Ctrl+J still falls through on a Back card
 - **Used by:** Both Typing and MCQ
 
 #### `_hna_storage.js` (94 lines)
@@ -87,7 +93,10 @@ Generated files must never be edited directly; changes to source files require r
 - **Responsibilities:**
   - Build the overlay: per-char placeholder spans, space/linebreak spans,
     punctuation hints
-  - Listen for input on the (invisible-but-active) `#typeans` input
+  - Resolve the typing field: Anki's `input#typeans` when Anki rendered one,
+    otherwise the template's own `#hna-type-input` (AnkiWeb drops
+    `{{type:Field}}`, so no input exists there — BUG-054), then listen for
+    input on that (invisible-but-active) field
   - Map typed positions to the answer's typeable slots 1:1 and paint
     per-character verdicts the moment each letter lands (green/red, plus
     `*-space` variants for separators); extras past the answer collect into a

@@ -1038,6 +1038,64 @@ should be appended here with a date.
   the ≤768 hero pin now asserts the `clamp(0.9375rem, 3.8vw, 1.25rem)` value
   instead of `--fs-xl`. Semantic diff colors (`--diff-*`) stay token-driven.
 
+### BUG-054 — typing area was blank on AnkiWeb (no input, no cursor)
+- **Date**: 2026-10-24
+- **Files**: `Front.html`, `_hna_typing.js`, `_hna_engine.js`,
+  `_hna_styles_v7.css`, `tests/harness.js`, `tests/ui/dom.test.js`
+- **Symptom**: reviewing on AnkiWeb, the typing box rendered as an empty
+  rounded rectangle — no placeholder characters, no caret, nothing that
+  could be clicked or typed into. Desktop was fine.
+- **Root cause**: `{{type:word}}` is a **desktop-only** field replacement;
+  AnkiWeb renders the token as an empty string (type-answer fields are not
+  supported there). No `input#typeans` therefore ever existed, and
+  `initTypeAnswer()` only knew how to wait for one: its 100-frame retry chain
+  ran out, `#typeans-overlay` was never built, and the wrapper stayed blank.
+- **Fix**:
+  - `Front.html` ships its own field, `input#hna-type-input` (`hidden` by
+    default), inside `.type-input-wrapper`.
+  - `_hna_typing.js` resolves the input through `resolveTypingInput()`:
+    Anki's `input#typeans` when present, otherwise the shipped field, which
+    is revealed only after `NATIVE_TYPEANS_FRAMES` (12) retries have proven
+    Anki's input absent. Everything downstream (overlay, verdicts,
+    persistence) is unchanged — it runs on whichever element was resolved.
+  - `_hna_styles_v7.css` applies the `#typeans` box rules to
+    `#hna-type-input` too (absolute, full-size, `opacity: 0`,
+    `caret-color: transparent`) and keeps it `display: none` while `[hidden]`.
+  - `AnkiEngine.focusTypingInput()` (Ctrl+J) now finds either field and skips
+    hidden ones, so `Ctrl+J` on a Back card still falls through to Anki.
+- **Regression guard**: `tests/ui/dom.test.js` — `ui: AnkiWeb has no
+  {{type:word}} field — the shipped fallback input takes over` (renders the
+  card with the input stripped, asserts the fallback is revealed, the overlay
+  builds placeholders, typing paints verdicts, the buffer reaches the Back
+  face, and Ctrl+J focuses it) and `ui: desktop keeps the fallback field
+  hidden when Anki supplies {{type:word}}`.
+
+### BUG-055 — custom play icon never applied on AnkiWeb (native player shown)
+- **Date**: 2026-10-24
+- **Files**: `_hna_engine.js`, `_hna_styles_v7.css`, `tests/ui/dom.test.js`
+- **Symptom**: on AnkiWeb an audio field rendered as the browser's own
+  `<audio controls>` pill (with seek bar, duration and volume), not the
+  design's round play button, so the SVG play icon never appeared.
+- **Root cause**: AnkiWeb substitutes `[sound:…]` with a **native
+  `<audio controls>`** element, while the stylesheet only ever skinned
+  `a.replay-button` / `a.soundLink` — the shape desktop Anki renders. Nothing
+  in the CSS matched an `<audio>` element, so no icon was involved at all:
+  the "SVG not loading" appearance was simply the unstyled native player.
+- **Fix**: `AnkiEngine.skinAudio()` rebuilds Anki's DOM shape on any
+  `<audio>` that has no Anki replay button beside it: it appends a
+  `button.replay-button` (already fully styled, icon included, from the CSS
+  mask) and marks the native element `.hna-audio-source`, which the stylesheet
+  collapses to 1×1 / `opacity: 0` — but only *after* the button exists, so a
+  JS failure still leaves a working native player. `initAudioSkin()` scans at
+  load and once more on the next frame (AnkiWeb can build players after the
+  card scripts run); the per-card document click listener rescans while
+  nothing has been skinned yet. Duplicate skins are prevented by a
+  `data-hna-audio` marker, and desktop cards (already carrying Anki's own
+  button) are skipped.
+- **Regression guard**: `tests/ui/dom.test.js` — `ui: AnkiWeb native <audio>
+  gets the styled replay button (icon parity)` (button injected, native
+  element hidden, click drives `play()`, exactly one button per sound).
+
 ## Open / latent issues
 
 ### ISSUE-001 — `window.__hnaIsTypingTimer` cleared only in typing module

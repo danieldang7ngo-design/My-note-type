@@ -6,3 +6,5 @@ backups/
 __pycache__/
 *.pyc
 *.log
+# local agent config (holds an API key) — never ship it
+opencode.jsonc

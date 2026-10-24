@@ -4,7 +4,7 @@
 
 const assert = require('assert');
 const { JSDOM } = require('jsdom');
-const { createEnv, evalModules, frontCard, backCard, flip, typeInto, overlayStats, SAMPLE } = require('../harness');
+const { createEnv, evalModules, frontCard, frontCardAnkiWeb, backCard, flip, typeInto, overlayStats, SAMPLE } = require('../harness');
 
 let env = null;
 let win = null;
@@ -218,6 +218,72 @@ cases.push({
     stats = overlayStats(win);
     assert.strictEqual(stats.all, 4, 'back to exact length');
     assert.strictEqual(stats.wordExtra, 0, 'extra group must disappear when it empties');
+  }
+});
+
+cases.push({
+  name: 'ui: AnkiWeb has no {{type:word}} field — the shipped fallback input takes over',
+  async: true,
+  fn: async () => {
+    const e2 = await createEnv();
+    flip(e2.win, frontCardAnkiWeb());
+    const doc = e2.win.document;
+    assert.strictEqual(doc.getElementById('typeans'), null, 'AnkiWeb injects no typeans input');
+    const fallback = doc.getElementById('hna-type-input');
+    assert.ok(fallback, 'front template must ship its own typing field for AnkiWeb');
+    assert.ok(!fallback.hasAttribute('hidden'), 'fallback must be revealed once Anki\'s input is proven absent');
+    // The overlay is the visible typing area: without it the wrapper is a
+    // blank box with no caret (the reported AnkiWeb symptom).
+    let stats = overlayStats(e2.win);
+    assert.strictEqual(stats.placeholder, 4, 'one placeholder per answer character');
+    fallback.value = 'katt';
+    fallback.dispatchEvent(new e2.win.Event('input', { bubbles: true }));
+    e2.win.__flushRAF();
+    stats = overlayStats(e2.win);
+    assert.strictEqual(stats.correct, 4, 'typing through the fallback paints the same verdicts');
+    // The typed answer must reach the Back face through the shared buffer.
+    assert.strictEqual(e2.win.__hnaTypedAnswerBuffer, 'katt', 'fallback typing must persist for the diff');
+    // Ctrl+J focuses whichever field is live.
+    assert.strictEqual(e2.win.AnkiEngine.focusTypingInput(), true, 'Ctrl+J must find the fallback field');
+  }
+});
+
+cases.push({
+  name: 'ui: desktop keeps the fallback field hidden when Anki supplies {{type:word}}',
+  fn: () => {
+    flip(win, frontCard());
+    const fallback = win.document.getElementById('hna-type-input');
+    assert.ok(fallback, 'fallback input must exist in the template');
+    assert.ok(fallback.hasAttribute('hidden'), 'fallback must stay hidden on desktop');
+    assert.ok(win.document.querySelector('input#typeans'), 'desktop typing input must be the Anki one');
+    assert.strictEqual(win.AnkiEngine.focusTypingInput(), true, 'Ctrl+J must find Anki\'s input');
+    // Two live inputs would split keystrokes between them.
+    assert.ok(win.document.activeElement === win.document.querySelector('input#typeans'),
+      'Ctrl+J must focus Anki\'s input, not the hidden fallback');
+  }
+});
+
+cases.push({
+  name: 'ui: AnkiWeb native <audio> gets the styled replay button (icon parity)',
+  async: true,
+  fn: async () => {
+    const e2 = await createEnv();
+    const data = Object.assign({}, SAMPLE, { audio_meaning: '<audio controls src="sound.mp3"></audio>' });
+    flip(e2.win, frontCard(data));
+    const doc = e2.win.document;
+    const audio = doc.querySelector('.sound audio');
+    assert.ok(audio, 'the native player AnkiWeb emits must stay in the DOM as the audio source');
+    assert.ok(audio.classList.contains('hna-audio-source'), 'native controls must be hidden once skinned');
+    const btn = doc.querySelector('.sound button.replay-button');
+    assert.ok(btn, 'a styled replay button must replace the native controls');
+    assert.ok(!doc.querySelector('.sound svg, .sound img'), 'the icon comes from the CSS mask, not a media file');
+    let played = 0;
+    audio.play = () => { played++; return Promise.resolve(); };
+    btn.dispatchEvent(new e2.win.MouseEvent('click', { bubbles: true }));
+    assert.strictEqual(played, 1, 'clicking the button must play the native element');
+    // Idempotent: the per-card click rescan must not stack a second button.
+    doc.body.click();
+    assert.strictEqual(doc.querySelectorAll('.sound .replay-button').length, 1, 'exactly one replay button per sound');
   }
 });
 

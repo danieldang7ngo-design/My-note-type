@@ -85,6 +85,14 @@ function backCard(data) {
   return render(readFile('Back.html'), data || SAMPLE);
 }
 
+/* AnkiWeb renders {{type:Field}} as an empty string — type-answer fields are
+   not supported there — so a card delivered to AnkiWeb carries NO input at
+   all. Simulating it means rendering the front template and dropping the
+   <center><input id="typeans"> the desktop path injects. */
+function frontCardAnkiWeb(data) {
+  return frontCard(data).replace('<center><input type="text" id="typeans" value=""></center>', '');
+}
+
 /* ------------------------------------------------------------
    Environment
 ------------------------------------------------------------ */
@@ -266,5 +274,5 @@ module.exports = {
   // the historical property name is kept for backward compatibility.
   get ROOT() { return getRoot(); },
   getRoot, readFile, render, SAMPLE,
-  frontCard, backCard, createEnv, evalModules, flip, typeInto, overlayStats
+  frontCard, backCard, frontCardAnkiWeb, createEnv, evalModules, flip, typeInto, overlayStats
 };

@@ -53,8 +53,29 @@
     };
     document.addEventListener('selectionchange', window.__hnaSelectionListener);
 
+    // AnkiWeb does not support {{type:Field}}: the token renders as an EMPTY
+    // STRING, so Anki never injects input#typeans there. Every retry below
+    // then ran out against nothing and the wrapper stayed blank — no caret,
+    // no way to type. Front.html ships its own field for that case; it is
+    // revealed only after Anki's input has provably not appeared.
+    var NATIVE_TYPEANS_FRAMES = 12;
+    var _fallbackRevealed = false;
+
+    function resolveTypingInput() {
+        var native = document.querySelector('input#typeans');
+        if (native) return native;
+        var fallback = document.getElementById('hna-type-input');
+        if (!fallback) return null;
+        if (!_fallbackRevealed) {
+            if (_retryCount < NATIVE_TYPEANS_FRAMES) return null;
+            fallback.removeAttribute('hidden');
+            _fallbackRevealed = true;
+        }
+        return fallback;
+    }
+
     function initTypeAnswer() {
-        var input = document.querySelector('input#typeans');
+        var input = resolveTypingInput();
         var overlay = document.getElementById('typeans-overlay');
         var smoothCaret = document.getElementById('smooth-caret');
         var correctAnswerSpan = document.getElementById('correct-answer');

@@ -294,6 +294,21 @@ AnkiEngine.toggleSettings = function (e) {
     if (menu) menu.classList.toggle('active');
 };
 
+// Focus the typing field. It is Anki's {{type:word}} input on desktop and our
+// own #hna-type-input on AnkiWeb, which does not support {{type:Field}}.
+// Hidden fields are skipped so a Back card (neither field live) still lets
+// Ctrl+J fall through to Anki instead of being swallowed.
+AnkiEngine.focusTypingInput = function () {
+    var ids = ['typeans', 'hna-type-input'];
+    for (var i = 0; i < ids.length; i++) {
+        var el = document.getElementById(ids[i]);
+        if (!el || el.hasAttribute('hidden')) continue;
+        el.focus();
+        return true;
+    }
+    return false;
+};
+
 AnkiEngine.closeSettings = function () {
     var btn = document.getElementById('btnSettings'), menu = document.getElementById('settingsMenu');
     if (btn) {
@@ -336,7 +351,7 @@ AnkiEngine.setupEvents = function () {
                 // exist, so Ctrl+J must not swallow the event for Anki.
                 if (action === 'toggleSettings') { AnkiEngine.toggleSettings(); handled = true; }
                 else if (action === 'toggleConfig') { AnkiEngine.toggleConfig(param); handled = true; }
-                else if (action === 'focusBtn') { var el2 = document.getElementById(param); if (el2) { el2.focus(); handled = true; } }
+                else if (action === 'focusBtn') { handled = AnkiEngine.focusTypingInput(); }
                 if (handled) { e.preventDefault(); e.stopImmediatePropagation(); }
                 break;
             }
@@ -348,6 +363,11 @@ AnkiEngine.setupEvents = function () {
         document.removeEventListener("click", AnkiEngine._docClickListener);
     }
     AnkiEngine._docClickListener = function (e) {
+        // AnkiWeb may add its sound players after the card scripts run; the
+        // scan is idempotent and stops once a player has been skinned.
+        if (!AnkiEngine.__audioSkinnedOnce) {
+            AnkiEngine.__audioSkinnedOnce = AnkiEngine.skinAudio() > 0;
+        }
         var settingsMenu = document.getElementById("settingsMenu"), btnSettings = document.getElementById("btnSettings");
         if (settingsMenu && settingsMenu.classList.contains("active")) {
             if (!settingsMenu.contains(e.target) && btnSettings && !btnSettings.contains(e.target)) {
@@ -507,6 +527,70 @@ window.AnkiAudio = window.AnkiAudio || {
     // was only an invitation to reintroduce the per-flip churn.
 };
 
+// ---------------------------------------------------------------
+// Audio skin (AnkiWeb parity)
+// ---------------------------------------------------------------
+// Desktop Anki substitutes a [sound:…] tag with `a.replay-button.soundLink`,
+// which is the shape the stylesheet skins (custom play icon included). AnkiWeb
+// emits a NATIVE `<audio controls>` instead, so nothing in the stylesheet
+// matched and the card fell back to the browser's own player. This rebuilds
+// Anki's shape: a real button.replay-button that drives the native element,
+// which stays in the DOM as the audio source and is hidden only AFTER the
+// button exists (a JS failure still leaves the browser's own player usable).
+AnkiEngine.skinAudio = function (root) {
+    var scope = root || document;
+    if (!scope.querySelectorAll) return 0;
+    var audios = scope.querySelectorAll('audio');
+    var skinned = 0;
+    for (var i = 0; i < audios.length; i++) {
+        var audio = audios[i];
+        if (audio.getAttribute('data-hna-audio') === '1') continue;
+        // Desktop already ships Anki's own replay button beside the sound;
+        // a second one would double every play control.
+        var host = audio.parentNode;
+        if (host && host.querySelector && host.querySelector('a.replay-button, a.soundLink')) {
+            audio.setAttribute('data-hna-audio', '1');
+            continue;
+        }
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'replay-button';
+        btn.setAttribute('aria-label', 'Spela upp ljud');
+        btn.setAttribute('title', 'Spela upp ljud');
+        btn.__hnaAudio = audio;
+        btn.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var el = this.__hnaAudio;
+            if (!el) return;
+            try {
+                el.currentTime = 0;
+                var p = el.play();
+                if (p && typeof p['catch'] === 'function') p['catch'](function () { });
+            } catch (err) { }
+        });
+        audio.setAttribute('data-hna-audio', '1');
+        audio.className = (audio.className ? audio.className + ' ' : '') + 'hna-audio-source';
+        if (host) host.insertBefore(btn, audio.nextSibling);
+        skinned++;
+    }
+    return skinned;
+};
+
+// AnkiWeb builds the card HTML itself and can create its <audio> elements a
+// tick after our scripts run, so scan once now and once on the next frame.
+// Handle on window: the next card cancels it, like every other loop here.
+AnkiEngine.initAudioSkin = function () {
+    if (window.__hnaAudioSkinRAF) { cancelAnimationFrame(window.__hnaAudioSkinRAF); window.__hnaAudioSkinRAF = null; }
+    this.__audioSkinnedOnce = this.skinAudio() > 0;
+    if (this.__audioSkinnedOnce) return;
+    window.__hnaAudioSkinRAF = requestAnimationFrame(function () {
+        window.__hnaAudioSkinRAF = null;
+        AnkiEngine.__audioSkinnedOnce = AnkiEngine.skinAudio() > 0;
+    });
+};
+
+AnkiEngine.initAudioSkin();
 // NOTE: a MutationObserver on #qa used to sit here re-capturing .aurora-card and
 // cancelling animations on the detached root. Measured over 80 flips it cancelled
 // nothing (Blink already drops animations on detached elements) while holding a

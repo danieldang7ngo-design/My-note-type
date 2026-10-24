@@ -43,6 +43,18 @@
             <div class="typing-area">
                 <div class="type-input-wrapper glass-pseudo">
                     {{type:word}}
+                    <!-- AnkiWeb does not support {{type:Field}} — it drops the
+                         token entirely, so Anki never injects input#typeans
+                         there and the overlay below never built: the box
+                         rendered blank with no caret and no way to type.
+                         This is our own field for that case, revealed by
+                         _hna_typing.js only once Anki's input has provably
+                         not appeared. On desktop it stays hidden: two live
+                         inputs would split the keystrokes. -->
+                    <input id="hna-type-input" type="text" inputmode="text"
+                           autocapitalize="off" autocorrect="off"
+                           autocomplete="off" spellcheck="false"
+                           aria-label="Skriv svaret" hidden>
                     <div id="typeans-overlay"></div>
                     <div id="smooth-caret"></div>
                 </div>
