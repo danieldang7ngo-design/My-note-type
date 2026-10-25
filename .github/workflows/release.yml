@@ -16,5 +16,6 @@ jobs:
       - run: npm ci
       - run: npm run preview:build
       - run: node mcq/preview/build-preview.js
+      - run: node tf/preview/build-preview.js
       - run: npm run test:all
       - run: npm run release:check

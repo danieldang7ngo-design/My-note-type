@@ -2,12 +2,13 @@
 
 ## Overview
 
-This project contains two Anki note types for language learning:
+This project contains three Anki note types for language learning:
 
 1. **Typing (HNA)** - Character-by-character typing with real-time feedback
 2. **Multiple Choice (MCQ)** - Question with 2-4 shuffled answer options
+3. **True-False (TF, beta)** - Four ĐÚNG/SAI statement rows, gated flip, partial x/N grading
 
-Both note types share common infrastructure (engine, storage, aurora) but have separate logic modules.
+All note types share common infrastructure (engine, storage, aurora, design-system CSS prefix) but have separate logic modules.
 
 ## Source of Truth
 
@@ -17,8 +18,13 @@ Both note types share common infrastructure (engine, storage, aurora) but have s
 | Back template         | `Back.html`             | No         | Hand-maintained                        |
 | MCQ Front template    | `mcq/Front.html`        | No         | Hand-maintained                        |
 | MCQ Back template     | `mcq/Back.html`         | No         | Hand-maintained                        |
+| TF Front template     | `tf/Front.html`         | No         | Hand-maintained                        |
+| TF Back template      | `tf/Back.html`          | No         | Hand-maintained                        |
 | Typing CSS            | `_hna_styles_v7.css`    | No         | Hand-maintained                        |
 | MCQ CSS               | `mcq/_mcq_styles.css`   | No         | Hand-maintained                        |
+| TF CSS                | `tf/_tf_styles.css`     | No         | Hand-maintained (shared prefix byte-identical to MCQ) |
+| MCQ preview           | `mcq/preview/preview_mcq.html` | Yes   | `node mcq/preview/build-preview.js`      |
+| TF preview            | `tf/preview/preview_tf.html` | Yes    | `node tf/preview/build-preview.js`       |
 | Preview               | `preview/preview.html`  | Yes        | `node preview/build-preview.js`        |
 | Publish artifact      | `staging output`        | Yes        | `node tests/run-all.js --publish`      |
 | Shared storage logic  | `_hna_storage.js`       | No         | Hand-maintained (MCQ has session-only copy) |
@@ -26,13 +32,15 @@ Both note types share common infrastructure (engine, storage, aurora) but have s
 | Typing runtime        | `_hna_typing.js`, `_hna_diff.js` | No | Hand-maintained                        |
 | MCQ logic             | `mcq/_mcq_logic.js`     | No         | Hand-maintained                        |
 | MCQ storage (ephemeral)| `mcq/_mcq_storage.js`   | No         | Hand-maintained (session-only)         |
+| TF logic              | `tf/_tf_logic.js`       | No         | Hand-maintained                        |
+| TF engine / storage   | `tf/_tf_engine.js`, `tf/_tf_storage.js` | No | Hand-maintained (session-only `hna-tf-state`) |
 
 Generated files must never be edited directly; changes to source files require regeneration.
 
 ## Storage & Privacy Policy
 
-- **Card-local interaction state** (typed answer, MCQ selection) lives only in memory during the card flip and is flushed to `sessionStorage` only as a crash/reload fallback. No durable storage is used for answers.
-- Typing fallback uses `{value:string, expiresAt:number}` with a 30-minute TTL; MCQ state carries its own five-minute `expiresAt`. Malformed or expired state is removed on read.
+- **Card-local interaction state** (typed answer, MCQ selection, TF answers) lives only in memory during the card flip and is flushed to `sessionStorage` only as a crash/reload fallback. No durable storage is used for answers.
+- Typing fallback uses `{value:string, expiresAt:number}` with a 30-minute TTL; MCQ/TF state carries its own five-minute `expiresAt`. Malformed or expired state is removed on read.
 - **Durable user preferences** (night mode, realtime check, etc.) go to `localStorage` via the `_hna_storage` module, namespaced and minimal.
 
 ## Security Rendering Policy
@@ -123,9 +131,12 @@ Generated files must never be edited directly; changes to source files require r
   - `saveState()` / `loadState()` - Front→Back state transition
 - **Dynamic rendering:** Already supports 2-4 options (filters empty fields)
 
-#### `mcq/_mcq_engine.js` (302 lines)
+#### `mcq/_mcq_engine.js` (377 lines)
 - **Purpose:** MCQ UI, settings, event handling
 - **Reuses:** `AnkiEngine` namespace for theme compatibility
+- **Key functions:**
+  - `skinAudio()` - Rebuild Anki's shape on native AnkiWeb `<audio>` (→ `button.replay-button`); desktop cards already carrying Anki's own replay anchor are left alone, as is `<audio>` nested inside an option `<button>`
+  - `initAudioSkin()` - Scan at load and once more on the next frame (AnkiWeb can build players after the card scripts run)
 - **Default config:**
   - `shuffleChoices: true` - Randomize order each review
   - `playSound: true` - Audio feedback on correct/wrong
@@ -137,6 +148,31 @@ Generated files must never be edited directly; changes to source files require r
 
 #### `mcq/_mcq_aurora.js` (173 lines)
 - **Purpose:** Copy of `_hna_aurora.js` for MCQ (intentional reuse)
+
+### True-False (TF) Modules (beta)
+
+#### `tf/_tf_logic.js`
+- **Purpose:** TF gameplay logic (truth normalization, row shuffle, state, grading)
+- **Exports:** `window.AnkiTF`
+- **Key functions:**
+  - `normalizeTruth()` - Map T/TRUE/1/D/Đ/ĐÚNG/Y/YES/+ → true, F/FALSE/0/S/SAI/N/NO/- → false, empty → null (skip), unknown → 'invalid' (fail-closed)
+  - `readItems()` - Read the four statement slots (skips empty, rejects unknown tokens)
+  - `shuffleOrder()` - Fisher-Yates over the row order only (badges stay de numbers)
+  - `computationSig()` / `saveState()` / `loadState()` / `clearState()` - Front→Back state transition (`hna-tf-state`, 5-minute TTL)
+  - `grade()` - Exact match per statement; overall only when all correct
+  - `initFront()` / `initBack()` / `destroyFront()` / `markReady()`
+- **Note:** Invalid or empty items never mark `html.tf-ready` (static fallback stays)
+
+#### `tf/_tf_engine.js`
+- **Purpose:** TF UI, settings, event handling (owns no digit/letter shortcuts — those live in `_tf_logic.js`)
+- **Key difference from MCQ:** shuffle menu label reads `Xáo trộn câu hỏi` (row order, not option order)
+
+#### `tf/_tf_storage.js` (68 lines)
+- **Purpose:** Same as `_hna_storage.js` but uses `sessionStorage` for ephemeral TF state (`hna-tf-state`)
+- **Note:** This is intentional code reuse (not DRY violation) to keep TF independent
+
+#### `tf/_tf_aurora.js`
+- **Purpose:** Copy of `_hna_aurora.js` for TF (intentional reuse)
 
 ## Data Flow
 

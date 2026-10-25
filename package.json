@@ -7,6 +7,7 @@
     "test:preflight": "node tests/run-all.js --preflight",
     "test:unit": "node tests/run-all.js --unit",
     "test:mcq": "node tests/run-all.js --mcq",
+    "test:tf": "node tests/run-all.js --tf",
     "test:ram": "node tests/run-all.js --ram",
     "test:design": "node tests/run-all.js --design",
     "test:ui": "node tests/run-all.js --ui",
@@ -14,6 +15,7 @@
     "build:templates": "node build/anki-templates.js",
     "test:themes": "python3 hna-theme-pack/verify_theme_contract.py",
     "preview:build": "node preview/build-preview.js",
+    "preview:tf": "node tf/preview/build-preview.js",
     "release:check": "node tests/run-all.js --publish"
   }
 }

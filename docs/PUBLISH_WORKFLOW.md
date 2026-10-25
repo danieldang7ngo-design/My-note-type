@@ -26,19 +26,24 @@ Each gate is a single command; gates 2–5 share one runner
 │     typing overlay, diff rendering, verdicts, a11y roles     │
 ├──────────────────────────────────────────────────────────────┤
 │  6. PREVIEW      open preview/preview.html AND                  │
-│     mcq/preview/preview_mcq.html                                │
+│     mcq/preview/preview_mcq.html AND                       │
+│     tf/preview/preview_tf.html                             │
 ├──────────────────────────────────────────────────────────────┤
 │  7. PUBLISH      node tests/run-all.js --publish             │
-│     stages the main 8 files + the mcq bundle into publish/,  │
-│     checksums, verifies the staged bundle with the full      │
-│     suite, prints checklist                                  │
+│     stages the main 8 files + the mcq bundle + the tf      │
+│     bundle into publish/, checksums, verifies the staged   │
+│     bundle with the full suite, prints checklist           │
 └──────────────────────────────────────────────────────────────┘
 ```
 
 The MCQ note type (`mcq/`) sits in the same pipeline: it is pre-flighted,
 integration-tested, staged into `publish/mcq/`, and re-tested against the
 staged bundle — nothing MCQ ships until every gate (including the safety
-backdoor contract below) is green.
+backdoor contract below) is green. The True-False note type (`tf/`) is the
+third sibling in the same pipeline: pre-flighted, integration-tested
+(`test:tf`), staged into `publish/tf/`, and re-tested against the staged
+bundle, with the same safety-backdoor contract (raw `.tf-raw-item` divs,
+`html.tf-ready` marker, `data-tf` correct-slot marker).
 
 ## Gate details
 
@@ -58,6 +63,9 @@ Checks that can be done with pure file reads:
 - [ ] `@font-face` src files exist in the media bundle (or are declared)
 - [ ] The `mcq/` font copies are byte-identical to the root fonts (one media
       source of truth for both note types)
+- [ ] The `tf/` font copies are byte-identical to the root fonts, and the
+      shared design-system prefix of `tf/_tf_styles.css` is byte-identical
+      to `mcq/_mcq_styles.css` (no copy drift)
 - [ ] `package-lock.json` is present, lockfileVersion >= 2, tracks every
       `package.json` dependency, and pins the jsdom tree (fresh clones stay
       installable with `npm ci`; `npm test` / `npm run test:publish` work)
@@ -75,6 +83,14 @@ the script order `_mcq_storage → _mcq_engine → _mcq_logic → _mcq_aurora`
 must hold in both `mcq/Front.html` and `mcq/Back.html`, its fonts must
 exist, and `mcq/preview/preview_mcq.html` must never be older than the mcq
 sources.
+
+The same static audits cover the TF note type (`tf/`): the 4 `_tf_*.js`
+modules must be ES5-clean, `_tf_styles.css` must pass the motion contract,
+the script order `_tf_storage → _tf_engine → _tf_logic → _tf_aurora`
+must hold in both `tf/Front.html` and `tf/Back.html`, its fonts must
+exist and match the root fonts byte-for-byte, the shared design-system
+prefix must be byte-identical to `mcq/_mcq_styles.css`, and
+`tf/preview/preview_tf.html` must never be older than the tf sources.
 
 #### MCQ safety backdoor (progressive enhancement)
 
@@ -195,10 +211,12 @@ staged bundle automatically). Open it in a real browser and verify:
 
 - [ ] Copies the 8 main shipped files into `publish/` and the mcq bundle into
       `publish/mcq/` (the mcq CSS also ships minified)
-- [ ] Records SHA-256 checksums (main + mcq) into `publish/SHA256SUMS.txt`
+- [ ] Copies the tf bundle into `publish/tf/` (the tf CSS also ships minified)
+- [ ] Records SHA-256 checksums (main + mcq + tf) into `publish/SHA256SUMS.txt`
 - [ ] Regenerates `preview/preview.html` from the staged main bundle and
       `mcq/preview/preview_mcq.html` from the staged mcq bundle
-- [ ] Re-runs the full suite (unit, mcq, ram, design, ui) against the staged
+- [ ] Regenerates `tf/preview/preview_tf.html` from the staged tf bundle
+- [ ] Re-runs the full suite (unit, mcq, tf, ram, design, ui) against the staged
       bundle (catches "works in src, broken in publish" drift)
 - [ ] Prints the final human checklist (below)
 

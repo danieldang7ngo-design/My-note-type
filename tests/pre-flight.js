@@ -562,6 +562,179 @@ cases.push({
   }
 });
 
+/* ────────────────────────────────────────────────────────────
+   TF note type (tf/ dir) — True-False sibling, same gates as MCQ.
+   Four statement rows with DUNG/SAI halves; html.tf-ready marks the
+   interactive render, raw .tf-raw-item divs stay the no-JS fallback.
+   ──────────────────────────────────────────────────────────── */
+const TF_SHIPPED_FILES = ['tf/Front.html', 'tf/Back.html', 'tf/_tf_styles.css',
+  'tf/_tf_storage.js', 'tf/_tf_engine.js', 'tf/_tf_logic.js', 'tf/_tf_aurora.js'];
+const TF_JS_FILES = ['tf/_tf_storage.js', 'tf/_tf_engine.js', 'tf/_tf_logic.js', 'tf/_tf_aurora.js'];
+
+cases.push({
+  name: 'preflight (tf): shipped files present',
+  fn() {
+    TF_SHIPPED_FILES.forEach((n) => {
+      if (!fs.existsSync(path.join(ROOT, n))) throw new Error('missing ' + n);
+    });
+    ['_Inter.ttf', '_JetBrainsMono.ttf'].forEach((f) => {
+      if (!fs.existsSync(path.join(ROOT, 'tf', f))) throw new Error('missing tf/' + f);
+    });
+  }
+});
+
+cases.push({
+  name: 'preflight (tf): font copies are byte-identical to the root fonts (single media source of truth)',
+  fn() {
+    ['_Inter.ttf', '_JetBrainsMono.ttf'].forEach((f) => {
+      const root = fs.readFileSync(path.join(ROOT, f));
+      const tf = fs.readFileSync(path.join(ROOT, 'tf', f));
+      assertTrue(root.equals(tf),
+        'tf/' + f + ' diverged from ' + f + ' — both note types must ship the identical font');
+    });
+  }
+});
+
+cases.push({
+  name: 'preflight (tf): shared design-system prefix is byte-identical to mcq (no copy drift)',
+  fn() {
+    // Everything above the "-SPECIFIC LAYER" header is the shared v7
+    // design system and must stay verbatim across note types (R6).
+    const prefixOf = (css) => {
+      const lines = css.split('\n');
+      const cut = lines.findIndex((l) => l.indexOf('SPECIFIC') !== -1);
+      if (cut === -1) throw new Error('layer header missing — cannot locate the shared prefix');
+      return lines.slice(0, cut).join('\n');
+    };
+    const mcqPrefix = prefixOf(read('mcq/_mcq_styles.css'));
+    const tfPrefix = prefixOf(read('tf/_tf_styles.css'));
+    assertTrue(mcqPrefix === tfPrefix,
+      'tf design-system prefix drifted from mcq — edit the shared system in both or neither');
+  }
+});
+
+cases.push({
+  name: 'preflight (tf): JS is ES5-compatible (no =>, const, let, template literals, class, fill)',
+  fn() {
+    const bad = [];
+    const patterns = [
+      ['arrow', '=>'],
+      ['const ', '\\bconst\\s+'],
+      ['let ', '\\blet\\s+'],
+      ['template-literal', '`'],
+      ['class ', '\\bclass\\s+'],
+      ['.fill(', '\\.fill\\('],
+      ['spread', '\\.\\.\\.'],
+      ['default-param', '=\\s*\\{[^}]*\\s*=\\s*\\}|function\\s*[A-Za-z0-9_]*\\s*\\([^)]*=\\s*[^)]*\\)']
+    ];
+    for (const f of TF_JS_FILES) {
+      const src = stripComments(read(f));
+      for (const [label, re] of patterns) {
+        let m;
+        const r = new RegExp(re, 'g');
+        while ((m = r.exec(src)) !== null) bad.push(f + ': ' + label + ' @' + m.index);
+      }
+    }
+    if (bad.length) throw new Error('tf ES5 violations:\n  ' + bad.join('\n  '));
+  }
+});
+
+cases.push({
+  name: 'preflight (tf): script load order is storage -> engine -> logic -> aurora (each exactly once)',
+  fn() {
+    ['tf/Front.html', 'tf/Back.html'].forEach((tpl) => {
+      const srcs = scriptSrcs(read(tpl));
+      const expected = ['_tf_storage.js', '_tf_engine.js', '_tf_logic.js', '_tf_aurora.js'];
+      if (srcs.join('|') !== expected.join('|')) {
+        throw new Error(tpl + ': script order/selection mismatch — ' + srcs.join(', '));
+      }
+      const inline = read(tpl).replace(/<!--[\s\S]*?-->/g, '');
+      if (!/AnkiTF\.initFront|AnkiTF\.initBack/.test(inline)) {
+        throw new Error(tpl + ': interactive init call missing after the script tags');
+      }
+    });
+  }
+});
+
+cases.push({
+  name: 'preflight (tf): motion contract — no infinite, no will-change, no transition of filter, no filter in keyframes',
+  fn() {
+    const css = stripComments(read('tf/_tf_styles.css'));
+    if (/\binfinite\b/.test(css)) throw new Error('"infinite" animation found');
+    if (/will-change/.test(css)) throw new Error('"will-change" found');
+    if (/transition[^;{]*filter/.test(css)) throw new Error('filter in a transition (layer churn)');
+    const keyframes = css.match(/@keyframes\s+[^{]+\{[\s\S]*?\}\s*\}/g) || [];
+    for (const kf of keyframes) {
+      if (/filter\s*:/.test(kf)) throw new Error('keyframes must never animate filter: ' + kf.slice(0, 160));
+    }
+  }
+});
+
+cases.push({
+  name: 'preflight (tf): progressive-enhancement safety-backdoor contract',
+  fn() {
+    // The raw statement divs ARE the static fallback: they must carry no
+    // inline display:none (the stylesheet owns the hiding), so they render
+    // whenever html.tf-ready is absent. The stylesheet hides them by
+    // default, reveals them on html:not(.tf-ready) with a DUNG/SAI tag via
+    // the data-tf attribute selector, and _tf_logic.js adds the marker only
+    // after a successful render.
+    ['tf/Front.html', 'tf/Back.html'].forEach((tpl) => {
+      const src = stripHtmlComments(read(tpl));
+      if (/<div\s+id="tf-raw-data"[^>]*style=/.test(src)) throw new Error(tpl + ': #tf-raw-data carries an inline style (hiding must live in the stylesheet)');
+      if (/class="tf-raw-item"[^>]*style=/.test(src)) throw new Error(tpl + ': .tf-raw-item carries an inline style (hiding must live in the stylesheet)');
+      if (/<div\s+id="tf-question-raw"[^>]*style=/.test(src)) throw new Error(tpl + ': #tf-question-raw carries an inline style (hiding must live in the stylesheet)');
+      if (!/class="tf-raw-item"[^>]+data-tf/.test(src)) throw new Error(tpl + ': raw statement slot missing its data-tf truth binding');
+    });
+    const css = stripComments(read('tf/_tf_styles.css'));
+    if (!/#tf-question-raw\{display:none\}/.test(css)) throw new Error('tf css: #tf-question-raw must be hidden by the stylesheet');
+    if (!/\.tf-raw-item\{display:none\}/.test(css)) throw new Error('tf css: .tf-raw-item must be hidden by the stylesheet');
+    if (!/html:not\(\.tf-ready\)/.test(css)) throw new Error('tf css: fallback reveal rule grounded on html:not(.tf-ready) missing');
+    if (!/\.card-front \.tf-raw-item/.test(css)) throw new Error('tf css: front-face fallback rule missing');
+    if (!/\.card-back \.tf-raw-item\[data-tf='T' i\]/.test(css)) throw new Error('tf css: back-face correct-slot marker rule missing');
+    const js = stripComments(read('tf/_tf_logic.js'));
+    if (!/classList\.add\(['"]tf-ready['"]\)/.test(js)) throw new Error('tf js: _tf_logic.js must add html.tf-ready after a successful interactive render');
+  }
+});
+
+cases.push({
+  name: 'preflight (tf): no TODO/FIXME/HACK markers remain in shipped tf files',
+  fn() {
+    const hits = [];
+    const re = /\b(?:TODO|FIXME|HACK)\b/g;
+    TF_SHIPPED_FILES.forEach((f) => {
+      const src = read(f);
+      let m;
+      while ((m = re.exec(src)) !== null) hits.push(f + ': ' + m[0] + ' @' + m.index);
+    });
+    if (hits.length) throw new Error('stray markers in shipped tf files:\n  ' + hits.join('\n  '));
+  }
+});
+
+cases.push({
+  name: 'preflight (tf): tf/preview/preview_tf.html is not older than the working tf sources',
+  fn() {
+    // The human-review gate must reflect the current tf bundle.
+    // tf/preview/build-preview.js skips regeneration when the artifact is
+    // already newer than every input; this test fails when a source has been
+    // touched since the last build.
+    const out = path.join(ROOT, 'tf', 'preview', 'preview_tf.html');
+    assertTrue(fs.existsSync(out),
+      'tf/preview/preview_tf.html missing — run `node tf/preview/build-preview.js` to regenerate');
+    const outM = fs.statSync(out).mtimeMs;
+    const stale = [];
+    TF_SHIPPED_FILES.forEach((n) => {
+      const p = path.join(ROOT, n);
+      if (fs.existsSync(p) && fs.statSync(p).mtimeMs > outM) stale.push(n);
+    });
+    const gen = path.join(ROOT, 'tf', 'preview', 'build-preview.js');
+    if (fs.existsSync(gen) && fs.statSync(gen).mtimeMs > outM) stale.push('tf/preview/build-preview.js');
+    assertTrue(stale.length === 0,
+      'tf/preview/preview_tf.html is stale — newer than it: ' + stale.join(', ') +
+      '. Regenerate with `node tf/preview/build-preview.js`.');
+  }
+});
+
 // AnkiWeb and AnkiMobile insert the card HTML instead of parsing it as a
 // document, so a <script src> tag that arrives inside the template never runs
 // (inline scripts do). Without the injection fallback every module is inert
@@ -577,7 +750,11 @@ cases.push({
       { file: 'mcq/Front.html', mode: '__mcqScriptMode', global: 'AnkiMCQ',
         files: ['_mcq_storage.js', '_mcq_engine.js', '_mcq_logic.js', '_mcq_aurora.js'] },
       { file: 'mcq/Back.html', mode: '__mcqScriptMode', global: 'AnkiMCQ',
-        files: ['_mcq_storage.js', '_mcq_engine.js', '_mcq_logic.js', '_mcq_aurora.js'] }
+        files: ['_mcq_storage.js', '_mcq_engine.js', '_mcq_logic.js', '_mcq_aurora.js'] },
+      { file: 'tf/Front.html', mode: '__tfScriptMode', global: 'AnkiTF',
+        files: ['_tf_storage.js', '_tf_engine.js', '_tf_logic.js', '_tf_aurora.js'] },
+      { file: 'tf/Back.html', mode: '__tfScriptMode', global: 'AnkiTF',
+        files: ['_tf_storage.js', '_tf_engine.js', '_tf_logic.js', '_tf_aurora.js'] }
     ];
     specs.forEach((spec) => {
       const src = stripHtmlComments(read(spec.file));
@@ -620,7 +797,10 @@ const DIST = [
     sources: ['Front.html', 'Back.html', '_hna_styles_v7.css'] },
   { dir: 'dist/mcq', front: 'dist/mcq/Front.html', back: 'dist/mcq/Back.html', css: 'dist/mcq/styling.css',
     modules: ['_mcq_storage.js', '_mcq_engine.js', '_mcq_logic.js', '_mcq_aurora.js'],
-    sources: ['mcq/Front.html', 'mcq/Back.html', 'mcq/_mcq_styles.css'] }
+    sources: ['mcq/Front.html', 'mcq/Back.html', 'mcq/_mcq_styles.css'] },
+  { dir: 'dist/tf', front: 'dist/tf/Front.html', back: 'dist/tf/Back.html', css: 'dist/tf/styling.css',
+    modules: ['_tf_storage.js', '_tf_engine.js', '_tf_logic.js', '_tf_aurora.js'],
+    sources: ['tf/Front.html', 'tf/Back.html', 'tf/_tf_styles.css'] }
 ];
 
 function inlinedBlocks(html) {
@@ -641,7 +821,7 @@ cases.push({
     const buildTime = fs.statSync(buildScript).mtimeMs;
 
     DIST.forEach((t) => {
-      const media = t.dir === 'dist/mcq' ? 'mcq/' : '';
+      const media = t.dir === 'dist' ? '' : t.dir.replace(/^dist\//, '') + '/';
       [t.front, t.back, t.css].forEach((f) => {
         assertTrue(fs.existsSync(path.join(ROOT, f)),
           f + ' missing — run `npm run build:templates`');

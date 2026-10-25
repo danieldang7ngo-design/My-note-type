@@ -1,7 +1,7 @@
 'use strict';
 /* HNA test runner — zero framework.
    Usage:
-     node tests/run-all.js                -> all buckets (preflight, unit, mcq, ram, design, ui)
+     node tests/run-all.js                -> all buckets (preflight, unit, mcq, tf, ram, design, ui)
      node tests/run-all.js --preflight    -> one bucket
      node tests/run-all.js --publish      -> stage to publish/, checksum, re-test staged, checklist
    Exit code 0 = green, 1 = failures.
@@ -28,6 +28,7 @@ if (!depsOk) {
 const PUBLISH_DIR = path.join(ROOT, 'publish');
 const CSS_FILE = '_hna_styles_v7.css';
 const MCQ_CSS_FILE = 'mcq/_mcq_styles.css';
+const TF_CSS_FILE = 'tf/_tf_styles.css';
 
 // Staging specs: { rel, minify } — rel is the path under ROOT that is also
 // created under publish/. CSS ships MINIFIED (comments + whitespace stripped);
@@ -55,10 +56,23 @@ const MCQ_SHIPPED = [
   { rel: 'mcq/_JetBrainsMono.ttf', minify: false }
 ];
 
+const TF_SHIPPED = [
+  { rel: 'tf/Front.html', minify: false },
+  { rel: 'tf/Back.html', minify: false },
+  { rel: TF_CSS_FILE, minify: true },
+  { rel: 'tf/_tf_storage.js', minify: false },
+  { rel: 'tf/_tf_engine.js', minify: false },
+  { rel: 'tf/_tf_logic.js', minify: false },
+  { rel: 'tf/_tf_aurora.js', minify: false },
+  { rel: 'tf/_Inter.ttf', minify: false },
+  { rel: 'tf/_JetBrainsMono.ttf', minify: false }
+];
+
 const BUCKETS = {
   preflight: './pre-flight.js',
   unit: ['./unit/diff.test.js', './unit/storage.test.js', './unit/config.test.js', './unit/typing.test.js'],
   mcq: ['./unit/mcq.test.js', './unit/mcq.integration.test.js'],
+  tf: ['./unit/tf.test.js', './unit/tf.integration.test.js'],
   ram: ['./ram/leak.test.js'],
   design: ['./design/design.test.js'],
   ui: ['./ui/dom.test.js']
@@ -69,7 +83,7 @@ const args = process.argv.slice(2);
 // silently dropped (WANTED.filter(b => BUCKETS[b]) produced an empty list) and
 // the suite exited 0 without running anything — false green. Fail loudly.
 const WANTED = args.filter((a) => a.startsWith('--')).map((a) => a.slice(2));
-const KNOWN_FLAGS = ['publish', 'preflight', 'unit', 'mcq', 'ram', 'design', 'ui'];
+const KNOWN_FLAGS = ['publish', 'preflight', 'unit', 'mcq', 'tf', 'ram', 'design', 'ui'];
 const unknownFlags = WANTED.filter((f) => KNOWN_FLAGS.indexOf(f) === -1);
 if (unknownFlags.length > 0) {
   process.stdout.write('Unknown flag(s): ' + unknownFlags.map((f) => '--' + f).join(', ') + '\n');
@@ -172,22 +186,26 @@ async function runPublish() {
   if (!fs.existsSync(PUBLISH_DIR)) fs.mkdirSync(PUBLISH_DIR, { recursive: true });
 
   const sums = [];
-  let mainMismatch = 0, mcqMismatch = 0;
+  let mainMismatch = 0, mcqMismatch = 0, tfMismatch = 0;
   mainMismatch = stageBatch(SHIPPED, sums);
   mcqMismatch = stageBatch(MCQ_SHIPPED, sums);
+  tfMismatch = stageBatch(TF_SHIPPED, sums);
   fs.writeFileSync(path.join(PUBLISH_DIR, 'SHA256SUMS.txt'), sums.join('\n') + '\n');
 
-  process.stdout.write(`-- staged ${SHIPPED.length} main files + ${MCQ_SHIPPED.length} mcq files into ${PUBLISH_DIR} ` +
-    `(${mainMismatch + mcqMismatch} refreshed, ${SHIPPED.length + MCQ_SHIPPED.length - mainMismatch - mcqMismatch} unchanged)\n`);
+  process.stdout.write(`-- staged ${SHIPPED.length} main files + ${MCQ_SHIPPED.length} mcq files + ${TF_SHIPPED.length} tf files into ${PUBLISH_DIR} ` +
+    `(${mainMismatch + mcqMismatch + tfMismatch} refreshed, ${SHIPPED.length + MCQ_SHIPPED.length + TF_SHIPPED.length - mainMismatch - mcqMismatch - tfMismatch} unchanged)\n`);
   const cssStaged = fs.statSync(path.join(PUBLISH_DIR, CSS_FILE)).size;
   const cssSrc = fs.statSync(path.join(ROOT, CSS_FILE)).size;
   process.stdout.write(`  (${CSS_FILE} ships minified: ${(cssStaged / 1024).toFixed(1)} KB vs ${(cssSrc / 1024).toFixed(1)} KB readable source)\n`);
   const mcqStaged = fs.statSync(path.join(PUBLISH_DIR, MCQ_CSS_FILE)).size;
   const mcqSrc = fs.statSync(path.join(ROOT, MCQ_CSS_FILE)).size;
   process.stdout.write(`  (${MCQ_CSS_FILE} ships minified: ${(mcqStaged / 1024).toFixed(1)} KB vs ${(mcqSrc / 1024).toFixed(1)} KB readable source)\n`);
+  const tfStaged = fs.statSync(path.join(PUBLISH_DIR, TF_CSS_FILE)).size;
+  const tfSrc = fs.statSync(path.join(ROOT, TF_CSS_FILE)).size;
+  process.stdout.write(`  (${TF_CSS_FILE} ships minified: ${(tfStaged / 1024).toFixed(1)} KB vs ${(tfSrc / 1024).toFixed(1)} KB readable source)\n`);
 
   // verify staged bytes == the canonical artifact bytes (minified css / raw files)
-  if (!verifyStaged(SHIPPED) || !verifyStaged(MCQ_SHIPPED)) {
+  if (!verifyStaged(SHIPPED) || !verifyStaged(MCQ_SHIPPED) || !verifyStaged(TF_SHIPPED)) {
     process.stdout.write('FATAL: staged bundle does not match the canonical artifact bytes (CSS is the minified build of ROOT).\n');
     process.exit(1);
   }
@@ -197,7 +215,8 @@ async function runPublish() {
   const { spawnSync } = require('child_process');
   const builds = [
     ['preview/build-preview.js', 'preview/preview.html', PUBLISH_DIR],
-    ['mcq/preview/build-preview.js', 'mcq/preview/preview_mcq.html', path.join(PUBLISH_DIR, 'mcq')]
+    ['mcq/preview/build-preview.js', 'mcq/preview/preview_mcq.html', path.join(PUBLISH_DIR, 'mcq')],
+    ['tf/preview/build-preview.js', 'tf/preview/preview_tf.html', path.join(PUBLISH_DIR, 'tf')]
   ];
   builds.forEach(([script, label, stagedRoot]) => {
     const p = path.join(ROOT, script);
@@ -216,7 +235,7 @@ async function runPublish() {
   });
 
   process.stdout.write('-- full suite against STAGED bundle --\n');
-  for (const b of ['unit', 'mcq', 'ram', 'design', 'ui']) {
+  for (const b of ['unit', 'mcq', 'tf', 'ram', 'design', 'ui']) {
     try {
       totalFail += (await runBucket(b, PUBLISH_DIR)).fail;
     } catch (e) {
@@ -242,7 +261,9 @@ async function runPublish() {
     '6. Confirm preview/preview.html checklist items were reviewed at 375/768/1200 px.',
     '7. MCQ note type: paste mcq/Front.html and mcq/Back.html into its template editor, drop mcq/_mcq_styles.css + mcq/_mcq_*.js into collection.media.',
     '8. Confirm mcq/preview/preview_mcq.html was reviewed at 375/768/1200 px — including one JS-disabled run of the safety backdoor (raw list renders).',
-    '9. Version this release in the report (e.g. v7-YYYY-MM-DD-N).'
+    '9. TF note type: paste tf/Front.html and tf/Back.html into its template editor, drop tf/_tf_styles.css + tf/_tf_*.js into collection.media.',
+    '10. Confirm tf/preview/preview_tf.html was reviewed at 375/768/1200 px — including one JS-disabled run of the safety backdoor (raw list renders).',
+    '11. Version this release in the report (e.g. v7-YYYY-MM-DD-N).'
   ].forEach((l) => process.stdout.write('  ' + l + '\n'));
   process.stdout.write('\nPUBLISH READY.\n');
   process.exit(0);

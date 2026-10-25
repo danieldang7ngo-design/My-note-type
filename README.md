@@ -1,12 +1,13 @@
 # Note-type
 
 Production-oriented [Anki](https://apps.ankiweb.net/) note types for **active
-typing recall** and **multiple-choice practice**, built as hand-pasted HTML/CSS/JS
-templates that run inside Anki's QtWebEngine webview.
+typing recall**, **multiple-choice practice**, and **true-false drills**,
+built as hand-pasted HTML/CSS/JS templates that run inside Anki's
+QtWebEngine webview.
 
 ## Overview
 
-This repository ships **two Anki note types** that share the same design system
+This repository ships **three Anki note types** that share the same design system
 (tokens, glassmorphic UI, aurora background) and settings engine, but have
 independent gameplay logic:
 
@@ -14,6 +15,7 @@ independent gameplay logic:
 |---|---|---|
 | **HNA Typing** | Shows a meaning cue, you type the target word character-by-character with real-time feedback, then sees a Levenshtein visual diff on the back | Root: `Front.html`, `Back.html`, `_hna_*.js`, `_hna_styles_v7.css` |
 | **HNA MCQ** | Asks a question with 2–4 shuffled options; instant correctness verdict, audio cue, and explanation on the back | `mcq/Front.html`, `mcq/Back.html`, `mcq/_mcq_*.js`, `mcq/_mcq_styles.css` |
+| **HNA TF** | Four ĐÚNG/SAI statement rows (shuffled); KIỂM TRA flips only when all answered, partial x/N score and per-statement miss list on the back | `tf/Front.html`, `tf/Back.html`, `tf/_tf_*.js`, `tf/_tf_styles.css` |
 
 ## Features
 
@@ -62,6 +64,25 @@ independent gameplay logic:
   the raw answer list (in `#mcq-raw-data`) renders as static fallback, so no
   card is ever stranded with zero options.
 
+### HNA TF
+
+- **Four statement rows** — each row is two radio halves: ĐÚNG (left) /
+  SAI (right); badges carry the original statement numbers 1–4.
+- **KIỂM TRA gating** — the flip button stays disabled until every statement
+  is answered; re-clicking a side keeps it, the other side switches.
+- **Partial grading** — exact match per statement, overall correct only when
+  all four match; the back shows the x/N score plus a miss list in
+  đề order (`Câu 2: đáp án SAI — bạn chọn ĐÚNG`), unanswered rows marked
+  `chưa trả lời`.
+- **Session-only state** — answers and row order survive the front→back flip
+  via `sessionStorage` (`hna-tf-state`) with a 5-minute TTL; reshowing the
+  front clears it.
+- **Keyboard** — `1–4` focus a row, `T`/`F` answer it, arrows move;
+  modifiers, editable targets, composing and `Space` are ignored.
+- **Progressive-enhancement safety backdoor** — if the JS engine ever fails
+  or a truth token is unknown, the raw statement list (in `#tf-raw-data`)
+  renders as static fallback with a ĐÚNG/SAI tag per `data-tf`.
+
 ## Note fields
 
 ### HNA Typing
@@ -99,6 +120,22 @@ Field **order matters** (the engine maps the template placeholders directly):
 | `Audio_Question` | Optional audio on the question |
 | `Tags_Custom`, `ID` | Tag badge tray + ID |
 
+### HNA TF
+
+Field **order matters** (the engine maps the template placeholders directly).
+Truth tokens: `T`/`TRUE`/`1`/`D`/`Đ`/`ĐÚNG`/`Y`/`YES`/`+` count as ĐÚNG;
+`F`/`FALSE`/`0`/`S`/`SAI`/`N`/`NO`/`-` count as SAI. Empty truth skips the
+slot; any other token fails closed (static fallback stays, no marker).
+
+| Field | Role |
+|---|---|
+| `Question` | The question text (HTML / MathJax) |
+| `Statement-1` … `Statement-4` | The four statements (empty text hides the slot) |
+| `Answer-1` … `Answer-4` | Truth per statement (`data-tf` binding) |
+| `Explanation` | Shown in a collapse on the back (optional) |
+| `Audio_Question` | Optional audio on the question |
+| `Tags_Custom`, `ID` | Tag badge tray + ID |
+
 ## Installation into Anki
 
 An Anki note type only has **three** paste slots — Front template, Back
@@ -111,6 +148,7 @@ dist/Front.html        -> Cards… > Front template
 dist/Back.html         -> Cards… > Back template
 dist/styling.css       -> Cards… > Styling
 dist/mcq/*             -> same three slots of the MCQ note type
+dist/tf/*              -> same three slots of the TF note type
 ```
 
 Why inlined: AnkiWeb and AnkiMobile build a card by inserting HTML, so a
@@ -143,6 +181,16 @@ media sync, cache and relative-path failures in one go. See
    - Styling: `dist/mcq/styling.css`
 4. Same two font files in media (`mcq/_Inter.ttf`, `mcq/_JetBrainsMono.ttf`).
 
+### HNA TF
+
+1. Create a note type (clone of *Basic*) named e.g. "HNA TF".
+2. Set the fields above in the order given.
+3. Open **Cards…**:
+   - Front template: `dist/tf/Front.html`
+   - Back template: `dist/tf/Back.html`
+   - Styling: `dist/tf/styling.css`
+4. Same two font files in media (`tf/_Inter.ttf`, `tf/_JetBrainsMono.ttf`).
+
 > Regenerate `dist/` after any source change: `npm run build:templates`
 > (the release gate fails on a stale `dist/`).
 
@@ -155,12 +203,16 @@ media sync, cache and relative-path failures in one go. See
 | `Ctrl+J` | Focus the typing answer field |
 | `Escape` | Close settings menu |
 | `Space` / `Enter` | Toggle a focused settings switch |
+| `T` / `F` (TF front) | Answer the focused statement ĐÚNG / SAI |
+| `1`–`4` (TF front) | Focus statement row 1–4 |
+| `↑` / `↓` / `←` / `→` (TF front) | Move row focus |
 
 ## Development workflow
 
 `preview/` and `publish/` are **generated artifacts** — never edit them
 directly. Edit root templates/modules and `mcq/` sources only, then
-regenerate (see [Source of truth](#source-of-truth)).
+regenerate (see [Source of truth](#source-of-truth)). The TF note type
+(`tf/`) follows the same rule: edit `tf/` sources only, never `dist/tf/`.
 
 ### Prerequisites
 
@@ -190,15 +242,16 @@ npm run build:templates
 npm run test:themes
 
 # Rebuild both generated review artifacts after source changes
-rm -f preview/preview.html mcq/preview/preview_mcq.html
+rm -f preview/preview.html mcq/preview/preview_mcq.html tf/preview/preview_tf.html
 npm run preview:build
 node mcq/preview/build-preview.js
+node tf/preview/build-preview.js
 
 # Stage, checksum, rebuild staged previews, and retest the publish artifact
 npm run release:check
 ```
 
-All buckets: `test:preflight`, `test:unit`, `test:mcq`, `test:ram`,
+All buckets: `test:preflight`, `test:unit`, `test:mcq`, `test:tf`, `test:ram`,
 `test:design`, `test:ui`, `test:all` (and `test:publish`).
 
 ## Test suite
@@ -208,9 +261,10 @@ All buckets: `test:preflight`, `test:unit`, `test:mcq`, `test:ram`,
 
 | Bucket | Flag | Covers |
 |---|---|---|
-| Pre-flight | `--preflight` | Static contracts: script order, ES5 syntax, motion contract, no settings markup in HTML, font refs, MCQ backdoor |
+| Pre-flight | `--preflight` | Static contracts: script order, ES5 syntax, motion contract, no settings markup in HTML, font refs, MCQ/TF backdoors |
 | Unit | `--unit` | Levenshtein diff, storage fallback, config layering, typing logic |
 | MCQ | `--mcq` | MCQ logic + hermetic DOM integration (grid, shuffle, state round-trip, verdicts, keydown) |
+| TF | `--tf` | TF logic + hermetic DOM integration (rows, halves, gating, grading, state round-trip, verdicts, keydown) |
 | RAM | `--ram` | Listener counts across flips, timer/rAF handles, aurora singleton, flip churn |
 | Design | `--design` | 30 WCAG AA contrast pairs, token stepping, motion contract, theme lockstep |
 | UI | `--ui` | Template structure + parity, menu build, shortcuts, typing overlay, diff render, a11y roles |
@@ -222,10 +276,12 @@ All buckets: `test:preflight`, `test:unit`, `test:mcq`, `test:ram`,
 gate. It:
 
 1. Runs pre-flight on the source.
-2. Stages the 8 main shipped files into `publish/` and the MCQ bundle into
-   `publish/mcq/` (CSS ships **minified**, everything else byte-for-byte).
+2. Stages the 8 main shipped files into `publish/`, the MCQ bundle into
+   `publish/mcq/` and the TF bundle into `publish/tf/` (CSS ships
+   **minified**, everything else byte-for-byte).
 3. Writes SHA-256 checksums to `publish/SHA256SUMS.txt`.
-4. Regenerates `preview/preview.html` and `mcq/preview/preview_mcq.html`
+4. Regenerates `preview/preview.html`, `mcq/preview/preview_mcq.html` and
+   `tf/preview/preview_tf.html`
    **from the staged bundle** so the reviewed artifact == shipped artifact.
 5. Re-runs the full suite against the staged bundle.
 6. Prints the final human checklist (paste, media, real review, RSS watch).

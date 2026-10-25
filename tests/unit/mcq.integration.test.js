@@ -63,6 +63,22 @@ function emptyRawHtml() {
     '</div></body></html>';
 }
 
+/* Audio-skin fixture: the engine skins at module load, so the <audio> (or
+   desktop anchor) must already be in the HTML before makeEnv() runs. */
+function audioFrontHtml(soundInner) {
+  return '<!DOCTYPE html><html><head></head><body>' +
+    '<div class="card-wrapper"><div class="aurora-card card-front">' +
+    '<div class="card-content">' +
+    '<span class="sound">' + soundInner + '</span>' +
+    '<div id="mcq-options-container" class="mcq-option-grid"></div>' +
+    '<div id="mcq-verdict-container"></div>' +
+    '</div>' +
+    '<div id="mcq-raw-data"></div>' +
+    '</div></div>' +
+    '<div id="settingsMenu"></div><button id="btnSettings"></button>' +
+    '</body></html>';
+}
+
 /* Hermetic environment: stub window timers/raf into a drained queue and run
    the real mcq modules inside a vm context bound to this jsdom Window. */
 function makeEnv(html) {
@@ -543,6 +559,89 @@ cases.push({
     const css = fs.readFileSync(path.join(MCQ_DIR, '_mcq_styles.css'), 'utf8');
     assertTrue(css.indexOf('.replay-button') !== -1, 'mcq css must style plain .replay-button');
     assertTrue(css.indexOf('a.replay-button.soundLink') !== -1, 'mcq css must style a.replay-button.soundLink');
+    const m = css.match(/\.hna-audio-source\s*\{([^}]*)\}/);
+    assertTrue(!!m, 'mcq css must define the .hna-audio-source collapse rule');
+    assertTrue(/position:\s*absolute/.test(m[1]), '.hna-audio-source must pin position: absolute');
+    assertTrue(/pointer-events:\s*none/.test(m[1]), '.hna-audio-source must carry pointer-events: none');
+    assertTrue(/clip-path/.test(m[1]), '.hna-audio-source must carry clip-path');
+  }
+});
+
+cases.push({
+  name: 'mcq audio: AnkiWeb native <audio> gets the styled replay button (icon parity)',
+  fn() {
+    const env = makeEnv(audioFrontHtml('<audio controls src="q.mp3"></audio>'));
+    const win = env.win;
+    win.__flush();
+    const audio = win.document.querySelector('.sound audio');
+    assertTrue(!!audio, 'the native player AnkiWeb emits must stay in the DOM as the audio source');
+    assertTrue(audio.classList.contains('hna-audio-source'), 'native controls must be hidden once skinned');
+    assertEq(audio.getAttribute('data-hna-audio'), '1', 'skinned audio must carry the data-hna-audio marker');
+    const btns = win.document.querySelectorAll('.sound button.replay-button');
+    assertEq(btns.length, 1, 'exactly one styled replay button per sound');
+    const btn = btns[0];
+    assertTrue(btn.previousElementSibling === audio, 'the button must sit right after the audio element');
+    assertTrue(!btn.querySelector('svg') && !btn.querySelector('img'),
+      'the icon comes from the CSS mask, not a media file');
+    assertEq(btn.getAttribute('aria-label'), 'Spela upp ljud', 'button must carry the play aria-label');
+    let played = 0;
+    audio.play = function () { played++; };
+    btn.click();
+    assertEq(played, 1, 'clicking the button must play the native element once');
+    // Idempotent: re-running the engine 20x must not stack more buttons.
+    for (let i = 0; i < 20; i++) { win.AnkiEngine.init(); }
+    win.__flush();
+    win.document.body.click();
+    win.__flush();
+    assertEq(win.document.querySelectorAll('.sound button.replay-button').length, 1,
+      'exactly one replay button per sound after 20 re-inits and a rescan click');
+    assertTrue(win.__mcqAudioSkinRAF == null, 'the audio-skin rAF handle must be null after the frame flush');
+  }
+});
+
+cases.push({
+  name: 'mcq audio: desktop cards (Anki replay anchor) get no extra button',
+  fn() {
+    // Anchor only: desktop already ships its own control.
+    const envAnchor = makeEnv(audioFrontHtml(
+      '<a class="replay-button soundLink" href="#" onclick="return false">[sound:q.mp3]</a>'));
+    envAnchor.__flush();
+    assertEq(envAnchor.win.document.querySelectorAll('.sound button.replay-button').length, 0,
+      'anchor-only desktop sound must get no extra button');
+    // Anchor + native audio: the pair is desktop's shape, leave it alone.
+    const envBoth = makeEnv(audioFrontHtml(
+      '<a class="replay-button soundLink" href="#" onclick="return false">[sound:q.mp3]</a>' +
+      '<audio controls src="q.mp3"></audio>'));
+    envBoth.__flush();
+    assertEq(envBoth.win.document.querySelectorAll('.sound button.replay-button').length, 0,
+      'anchor+audio desktop sound must get no extra button');
+    const audio = envBoth.win.document.querySelector('.sound audio');
+    assertTrue(!!audio, 'desktop audio element must stay in the DOM');
+    assertTrue(audio.classList.contains('hna-audio-source') === false,
+      'desktop audio must NOT be collapsed (no button was built)');
+  }
+});
+
+cases.push({
+  name: 'mcq audio: <audio> inside an option button gets no nested button',
+  fn() {
+    const env = makeEnv('<!DOCTYPE html><html><head></head><body>' +
+      '<div class="card-wrapper"><div class="aurora-card card-front">' +
+      '<div class="card-content">' +
+      '<button class="mcq-option-btn" data-slot="0"><span class="option-content">katt</span>' +
+      '<span class="sound"><audio controls src="q.mp3"></audio></span></button>' +
+      '<div id="mcq-options-container" class="mcq-option-grid"></div>' +
+      '<div id="mcq-verdict-container"></div>' +
+      '</div>' +
+      '<div id="mcq-raw-data"></div>' +
+      '</div></div>' +
+      '<div id="settingsMenu"></div><button id="btnSettings"></button>' +
+      '</body></html>');
+    env.__flush();
+    assertEq(env.win.document.querySelectorAll('button.replay-button').length, 0,
+      'audio nested in an option <button> must not gain a nested button');
+    assertEq(env.win.document.querySelectorAll('.sound audio').length, 1,
+      'the nested audio element itself must stay in the DOM');
   }
 });
 

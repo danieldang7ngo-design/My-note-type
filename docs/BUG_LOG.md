@@ -1151,6 +1151,32 @@ should be appended here with a date.
   `<link href>` left, modules inlined in order, brace-free module bodies,
   Front/Back module parity, freshness against every input + the builder).
 
+### BUG-058 — AnkiWeb native audio never skinned on MCQ cards (unstyled player)
+- **Date**: 2026-10-24
+- **Files**: `mcq/_mcq_engine.js`, `mcq/_mcq_styles.css`, `tests/unit/mcq.integration.test.js`
+- **Symptom**: on AnkiWeb an MCQ card's audio field rendered as the browser's
+  own `<audio controls>` pill, not the design's round play button.
+- **Root cause**: BUG-055 fixed the typing engine only;
+  `mcq/_mcq_engine.js` is a separate copy with no skin, so AnkiWeb's
+  `<audio controls>` was never matched by any `.replay-button` rule. The MCQ
+  stylesheet already carried the button+mask; only the skin and the collapse
+  rule were missing.
+- **Fix**: ported `AnkiEngine.skinAudio()` / `AnkiEngine.initAudioSkin()`
+  (native AnkiWeb `<audio>` → `button.replay-button`, labelled
+  'Spela upp ljud', marked `data-hna-audio="1"`, native element collapsed via
+  `.hna-audio-source` only after the button exists; desktop cards already
+  carrying Anki's own replay anchor are left alone, as is `<audio>` nested
+  inside an option `<button>`), hooked into `AnkiEngine.init()` plus the
+  per-card document click rescan, and added the `.hna-audio-source` collapse
+  rule to `mcq/_mcq_styles.css`.
+- **Regression guard**: `tests/unit/mcq.integration.test.js` — `mcq audio:
+  AnkiWeb native <audio> gets the styled replay button (icon parity)`
+  (button injected, native element hidden, click drives `play()`, exactly one
+  button after 20 re-inits), `mcq audio: desktop cards (Anki replay anchor)
+  get no extra button`, `mcq audio: <audio> inside an option button gets no
+  nested button`, and the extended `.hna-audio-source` CSS contract
+  assertions.
+
 ## Open / latent issues
 
 ### ISSUE-001 — `window.__hnaIsTypingTimer` cleared only in typing module

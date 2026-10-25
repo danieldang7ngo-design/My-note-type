@@ -105,3 +105,12 @@ html:not(.mcq-ready) .card-back .mcq-raw-ans[data-correct="true"] { border-color
   .mcq-option-btn { min-height: 54px; }
   .mcq-option-btn .option-content { font-family: var(--font-ui); font-size: var(--fs-base); line-height: 1.5; }
 }
+
+/* ============================================================
+   ANKIWEB PARITY — AUDIO
+   AnkiWeb renders the Audio_Question field as a native <audio controls>,
+   which no .replay-button rule matches. _mcq_engine.js builds the
+   styled button and marks the native element .hna-audio-source;
+   this collapses it, and only ever after the button exists.
+   ============================================================ */
+.hna-audio-source { position: absolute !important; width: 1px !important; height: 1px !important; opacity: 0 !important; pointer-events: none !important; overflow: hidden !important; clip-path: inset(50%) !important; }

@@ -1,0 +1,102 @@
+<link rel="stylesheet" href="_tf_styles.css">
+
+<!-- Nút Cài đặt & Menu -->
+<button type="button" id="btnSettings" class="btn-settings" onclick="AnkiEngine.toggleSettings(event)" aria-label="Settings">
+    <div class="settings-cross"></div>
+</button>
+<div id="settingsMenu" class="settings-menu"></div>
+
+<!-- Raw field data for the JS engine (Safe HTML extraction). The statement divs
+     are ALSO the progressive-enhancement safety backdoor: _tf_logic.js adds
+     html.tf-ready as soon as the static graded rows have rendered, and
+     _tf_styles.css shows these raw divs whenever that marker is missing —
+     a card can never be stuck with no statements, even if the scripts fail. -->
+<div id="tf-question-raw">{{Question}}</div>
+
+<div class="card-wrapper">
+    <div class="aurora-card card-back">
+        <div class="card-content">
+            
+            <!-- QUESTION CUE CARD -->
+            <div class="cue-card glass-pseudo cue-card--meaning">
+                <div class="prompt-label">CÂU HỎI</div>
+                <div class="meaning-row">
+                    {{#Question}}<span class="prompt-content">{{Question}}</span>{{/Question}}
+                    {{#Audio_Question}}<span class="sound" style="display: inline-flex; margin-left: 6px;">{{Audio_Question}}</span>{{/Audio_Question}}
+                </div>
+            </div>
+
+            <!-- TF AREA: verdict, graded statement rows, miss list, explanation. -->
+            <div class="tf-area">
+                <div id="tf-verdict-container" class="tf-verdict-container">
+                    <!-- Javascript will inject the verdict banner here -->
+                </div>
+
+                <div id="tf-rows-container" class="tf-rows">
+                    <!-- Javascript will inject the graded rows here -->
+                </div>
+
+                <div id="tf-miss-list" class="tf-miss-list">
+                    <!-- Javascript will inject the per-statement miss list here -->
+                </div>
+            
+            {{#Explanation}}
+            <details class="expand-container">
+                <summary class="expand-trigger">
+                    <span>GIẢI THÍCH CHI TIẾT</span>
+                    <span class="expand-chevron"></span>
+                </summary>
+                <div class="expand-content glass-pseudo"><div class="giaithich">{{Explanation}}</div></div>
+            </details>
+            {{/Explanation}}
+            </div>
+
+            <!-- Footer Toolbar -->
+            <div class="footer-toolbar">
+                <div class="card-tags glass-pseudo">
+                    {{#Tags_Custom}}<span class="tag-badge" title="{{Tags_Custom}}">{{Tags_Custom}}</span>{{/Tags_Custom}}
+                    {{#ID}}<span class="tag-badge id-badge" title="{{ID}}">ID: {{ID}}</span>{{/ID}}
+                </div>
+                <div class="stats-footer">HNA TF • ID {{ID}}</div>
+            </div>
+        </div>
+
+        <div id="tf-raw-data">
+            <div class="tf-raw-item" data-tf="{{Answer-1}}">{{Statement-1}}</div>
+            <div class="tf-raw-item" data-tf="{{Answer-2}}">{{Statement-2}}</div>
+            <div class="tf-raw-item" data-tf="{{Answer-3}}">{{Statement-3}}</div>
+            <div class="tf-raw-item" data-tf="{{Answer-4}}">{{Statement-4}}</div>
+        </div>
+    </div>
+</div>
+
+<script src="_tf_storage.js"></script>
+<script src="_tf_engine.js"></script>
+<script src="_tf_logic.js"></script>
+<script src="_tf_aurora.js"></script>
+<script>
+(function () {
+    var FILES = ['_tf_storage.js', '_tf_engine.js', '_tf_logic.js', '_tf_aurora.js'];
+    function start() {
+        if (window.AnkiTF && typeof AnkiTF.initBack === 'function') AnkiTF.initBack();
+    }
+    // Same AnkiWeb/AnkiMobile gap as the typing note type: a <script src>
+    // inside an inserted card never runs, dynamically created nodes do.
+    if (typeof window.__tfScriptMode === 'undefined') {
+        window.__tfScriptMode = (typeof window.AnkiTF !== 'undefined' && typeof AnkiTF.initBack === 'function') ? 'static' : 'inject';
+    }
+    if (window.__tfScriptMode === 'static') { start(); return; }
+    var token = window.__tfBootToken = (window.__tfBootToken || 0) + 1;
+    var i = 0;
+    function next() {
+        if (token !== window.__tfBootToken) return;
+        if (i >= FILES.length) { start(); return; }
+        var s = document.createElement('script');
+        s.src = FILES[i++];
+        s.onload = next;
+        s.onerror = next;
+        (document.head || document.documentElement).appendChild(s);
+    }
+    next();
+})();
+</script>
