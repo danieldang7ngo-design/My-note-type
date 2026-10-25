@@ -1,12 +1,13 @@
 'use strict';
 /* TF integration tests — True-False note type contract:
-     1. initFront builds four statement rows (badge = de number, two
-        DUNG/SAI radio halves) and marks html.tf-ready only after render.
+     1. initFront builds four statement rows (badge = row position, data-orig
+        keeps the de index, two DUNG/SAI radio halves) and marks
+        html.tf-ready only after render.
      2. shuffleChoices=false preserves de order; shuffle is a permutation.
      3. Answering drives progress + KIEM TRA gating; re-click keeps,
         opposite side switches; submit stores state and flips exactly once.
      4. Back re-renders the stored order, flags correct/wrong/dimmed,
-        verdict + x/N, miss list in de order, tone.
+        positional verdict (no x/N, no miss list), tone.
      5. Back with no state: BỎ TRỐNG verdict, all is-skipped, answers shown.
      6. Unknown truth token fails closed (no marker, console.warn).
      7. Keyboard: T/F answer, 1-4 focus, arrows move, modifiers/inputs/
@@ -45,7 +46,6 @@ function baseHtml(face, statements, answers) {
     '<div id="tf-rows-container" class="tf-rows"></div>' +
     '<button id="tf-submit" disabled>KIEM TRA</button>' +
     '<div id="tf-verdict-container"></div>' +
-    '<div id="tf-miss-list"></div>' +
     '</div>' +
     '<div id="tf-raw-data">' + raws + '</div>' +
     '</div></div>' +
@@ -193,8 +193,12 @@ cases.push({
       'html.tf-ready must be added after the rows rendered');
     assertEq(win.document.querySelectorAll('.tf-raw-item').length, 4,
       'raw statement divs must stay in the DOM (they are the fallback source)');
-    // Badge = de number (origIndex+1), position-independent.
-    assertEq(rowBadges(win).join('|'), '1|2|3|4', 'badges must be the de numbers');
+    // Badge = row position (1-based display index), data-orig keeps de index.
+    assertEq(rowBadges(win).join('|'), '1|2|3|4', 'badges must be the row positions');
+    const origs = Array.prototype.map.call(
+      win.document.querySelectorAll('.tf-row'),
+      function (r) { return r.getAttribute('data-orig'); }).join('|');
+    assertEq(origs, '0|1|2|3', 'data-orig must mirror the identity order when unshuffled');
     // Two halves per row, radio roles, unchecked.
     const halves = win.document.querySelectorAll('.tf-half');
     assertEq(halves.length, 8, 'each row must have a DUNG half and a SAI half');
@@ -204,7 +208,7 @@ cases.push({
     }
     assertEq(progressText(win), 'Đã trả lời 0/4', 'progress starts at 0/4');
     const btn = win.document.getElementById('tf-submit');
-    assertTrue(btn.hasAttribute('disabled'), 'KIEM TRA stays disabled until all rows answered');
+    assertTrue(!btn.hasAttribute('disabled'), 'KIEM TRA stays enabled even before all rows answered (beta: no gate)');
   }
 });
 
@@ -229,10 +233,15 @@ cases.push({
       win2.__flush();
       // Fisher-Yates with random=0 on [0,1,2,3]: i=3 j=0 -> [3,1,2,0];
       // i=2 j=0 -> [2,1,3,0]; i=1 j=0 -> [1,2,3,0]. Badges follow the row.
-      assertEq(rowBadges(win2).join('|'), '2|3|4|1',
-        'seeded shuffle must permute whole rows (badges travel with their statement)');
+      assertEq(rowBadges(win2).join('|'), '1|2|3|4',
+        'seeded shuffle must badge rows by display position');
+      const origs2 = Array.prototype.map.call(
+        win2.document.querySelectorAll('.tf-row'),
+        function (r) { return r.getAttribute('data-orig'); }).join('|');
+      assertEq(origs2, '1|2|3|0',
+        'seeded shuffle must permute data-orig while badges stay positional');
       assertEq(rowTexts(win2)[3], 'Nuoc soi o 100 do C',
-        'statement text must travel with its badge');
+        'statement text must travel with its data-orig');
     } finally {
       win2.Math.random = realRandom;
     }
@@ -275,8 +284,20 @@ cases.push({
 });
 
 cases.push({
-  name: 'tf integration: KIEM TRA gates on completeness, stores state, flips exactly once',
+  name: 'tf integration: KIEM TRA submits even when incomplete, stores state, flips exactly once',
   fn() {
+    // Beta: no completeness gate — KIEM TRA submits with 0/4 answered.
+    const env0 = makeEnv(baseHtml('front'));
+    const win0 = env0.win;
+    win0.AnkiEngine.config.shuffleChoices = false;
+    win0.AnkiTF.initFront();
+    win0.__flush();
+    const btn0 = win0.document.getElementById('tf-submit');
+    assertTrue(!btn0.hasAttribute('disabled'), 'KIEM TRA enabled with 0/4 answered (beta)');
+    btn0.click();
+    win0.__flush();
+    assertEq(env0.flipArgs.join(','), 'ans', 'incomplete answers must still flip (beta: no gate)');
+    // Full flow in a fresh env: progress tracks, submit stores, latch once.
     const env = makeEnv(baseHtml('front'));
     const win = env.win;
     win.AnkiEngine.config.shuffleChoices = false;
@@ -285,17 +306,21 @@ cases.push({
     const btn = win.document.getElementById('tf-submit');
     btn.click();
     win.__flush();
-    assertEq(env.flipArgs.length, 0, 'incomplete answers must not flip');
+    assertEq(env.flipArgs.join(','), 'ans', 'setup: fresh env incomplete click flips (beta)');
+    win.AnkiTF.initFront();
+    win.__flush();
+    env.flipArgs.length = 0;
+    const btn2 = win.document.getElementById('tf-submit');
     clickHalf(win, 0, true);
     clickHalf(win, 1, false);
     clickHalf(win, 2, true);
     win.__flush();
-    assertTrue(btn.hasAttribute('disabled'), '3/4 answered keeps KIEM TRA disabled');
+    assertTrue(!btn2.hasAttribute('disabled'), '3/4 answered keeps KIEM TRA enabled (beta)');
     assertEq(progressText(win), 'Đã trả lời 3/4', 'progress tracks 3/4');
     clickHalf(win, 3, false);
     win.__flush();
-    assertTrue(!btn.hasAttribute('disabled'), '4/4 answered enables KIEM TRA');
-    btn.click();
+    assertTrue(!btn2.hasAttribute('disabled'), '4/4 answered keeps KIEM TRA enabled');
+    btn2.click();
     win.__flush();
     assertEq(env.flipArgs.join(','), 'ans', 'submit must flip via pycmd("ans")');
     const st = win.__hnaTFState;
@@ -305,14 +330,14 @@ cases.push({
     assertTrue(st.expiresAt - st.submittedAt === 5 * 60 * 1000, 'state TTL must be 5 minutes');
     assertEq(JSON.stringify(st.answers), JSON.stringify({ 0: true, 1: false, 2: true, 3: false }),
       'answers keyed by de index');
-    btn.click();
+    btn2.click();
     win.__flush();
     assertEq(env.flipArgs.join(','), 'ans', 'double submit must flip exactly once (answered latch)');
   }
 });
 
 cases.push({
-  name: 'tf integration: back re-renders stored order with correct/wrong/dimmed flags, verdict, miss list, tone',
+  name: 'tf integration: back re-renders stored order with correct/wrong/dimmed flags, positional verdict, tone',
   fn() {
     const env = makeEnv(baseHtml('front'));
     const win = env.win;
@@ -342,9 +367,10 @@ cases.push({
     w2.__flush();
     // Force-complete via answering row2 then verify submit path separately;
     // here grade directly through the back by completing row2 as skipped is
-    // impossible, so answer row2 correctly and assert the 3/4 + verdict.
+    // impossible, so answer row2 correctly and assert the positional verdict.
     clickHalf(w2, 2, true);
     w2.__flush();
+    const rowTextsFront = rowTexts(w2).join('|');
     w2.document.getElementById('tf-submit').click();
     w2.__flush();
     flipToBack(w2);
@@ -354,6 +380,9 @@ cases.push({
     assertEq(rowBadges(w2).join('|'), '1|2|3|4', 'back must re-render the STORED order');
     const rows = w2.document.querySelectorAll('.tf-row');
     assertEq(rows.length, 4, 'back renders all four rows');
+    // Back order must match the front order (identity here).
+    assertEq(rowTexts(w2).join('|'), rowTextsFront,
+      'back text order must match the front order');
     // Row1 (truth F, chose T): DUNG half is-wrong + ✗, SAI half is-correct + ✓.
     const r1 = rows[1].querySelectorAll('.tf-half');
     assertTrue(r1[0].classList.contains('is-wrong'), 'wrongly chosen side carries is-wrong');
@@ -367,17 +396,20 @@ cases.push({
     const verdict = w2.document.querySelector('.verdict-banner');
     assertTrue(!!verdict && verdict.className.indexOf('wrong') !== -1,
       'one wrong pick must show the CHƯA CHÍNH XÁC banner');
-    assertTrue(verdict.textContent.indexOf('3/4') !== -1, 'verdict carries the partial score x/N');
+    assertEq(verdict.textContent, '✗ CHƯA CHÍNH XÁC 2',
+      'verdict must name the wrong row position, got: ' + verdict.textContent);
+    assertTrue(verdict.textContent.indexOf('/') === -1,
+      'verdict must carry no x/N score suffix');
     assertEq(env2.tones.join(','), 'wrong', 'partial card must play the wrong tone');
-    const miss = w2.document.getElementById('tf-miss-list').textContent;
-    assertTrue(miss.indexOf('CÁC CÂU SAI') !== -1, 'miss list header present');
-    assertTrue(miss.indexOf('Câu 2: đáp án SAI — bạn chọn ĐÚNG') !== -1,
-      'miss line names de number, true answer and the wrong pick, got: ' + miss);
+    assertTrue(w2.document.getElementById('tf-miss-list') === null,
+      'the miss list container must be gone');
+    assertEq(w2.document.querySelectorAll('.tf-miss-item').length, 0,
+      'no miss lines may be rendered');
   }
 });
 
 cases.push({
-  name: 'tf integration: all-correct back shows the correct banner, tone and empty-of-wrong miss list',
+  name: 'tf integration: all-correct back shows the correct banner and tone, no miss list',
   fn() {
     const env = makeEnv(baseHtml('front'));
     const win = env.win;
@@ -396,8 +428,13 @@ cases.push({
     const verdict = win.document.querySelector('.verdict-banner');
     assertTrue(!!verdict && verdict.className.indexOf('correct') !== -1,
       'perfect card must show the CHÍNH XÁC banner');
-    assertTrue(verdict.textContent.indexOf('4/4') !== -1, 'perfect verdict shows 4/4');
+    assertTrue(verdict.textContent.indexOf('CHÍNH XÁC') !== -1,
+      'perfect banner must say CHÍNH XÁC');
+    assertTrue(verdict.textContent.indexOf('4/4') === -1,
+      'perfect verdict must not carry a 4/4 suffix');
     assertEq(env.tones.join(','), 'correct', 'perfect card must play the correct tone');
+    assertTrue(win.document.getElementById('tf-miss-list') === null,
+      'the miss list container must be gone');
     const missItems = win.document.querySelectorAll('.tf-miss-item');
     assertEq(missItems.length, 0, 'perfect card has no miss lines');
   }
@@ -415,7 +452,10 @@ cases.push({
       'no-state back must show the wrong banner (skipped counts as wrong)');
     assertTrue(verdict.textContent.indexOf('BỎ TRỐNG') !== -1,
       'no-state verdict must say BỎ TRỐNG — TÍNH LÀ SAI');
-    assertTrue(verdict.textContent.indexOf('0/4') !== -1, 'no-state score is 0/4');
+    assertTrue(verdict.textContent.indexOf('1,2,3,4') !== -1,
+      'no-state verdict must list every row position');
+    assertTrue(verdict.textContent.indexOf('0/4') === -1,
+      'no-state verdict must not carry a 0/4 suffix');
     assertEq(env.tones.join(','), 'wrong', 'no state must play the wrong tone');
     assertTrue(win.document.documentElement.classList.contains('tf-ready'),
       'back must still mark ready so the static fallback hides behind the rows');
@@ -429,11 +469,10 @@ cases.push({
       'truth-T row must still reveal the DUNG side');
     assertTrue(rows[1].querySelector('.tf-false').classList.contains('is-correct'),
       'truth-F row must still reveal the SAI side');
-    const miss = win.document.getElementById('tf-miss-list').textContent;
-    [1, 2, 3, 4].forEach((n) => {
-      assertTrue(miss.indexOf('Câu ' + n + ':') !== -1, 'miss list covers Câu ' + n);
-      assertTrue(miss.indexOf('chưa trả lời') !== -1, 'no-state miss lines say chưa trả lời');
-    });
+    assertTrue(win.document.getElementById('tf-miss-list') === null,
+      'the miss list container must be gone');
+    assertEq(win.document.querySelectorAll('.tf-miss-item').length, 0,
+      'no-state back renders no miss lines');
   }
 });
 

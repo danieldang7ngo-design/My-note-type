@@ -29,7 +29,7 @@
                 </div>
             </div>
 
-            <!-- TF AREA: verdict, graded statement rows, miss list, explanation. -->
+            <!-- TF AREA: verdict, graded statement rows, explanation. -->
             <div class="tf-area">
                 <div id="tf-verdict-container" class="tf-verdict-container">
                     <!-- Javascript will inject the verdict banner here -->
@@ -37,10 +37,6 @@
 
                 <div id="tf-rows-container" class="tf-rows">
                     <!-- Javascript will inject the graded rows here -->
-                </div>
-
-                <div id="tf-miss-list" class="tf-miss-list">
-                    <!-- Javascript will inject the per-statement miss list here -->
                 </div>
             
             {{#Explanation}}
@@ -695,11 +691,6 @@ window.AnkiAudio = window.AnkiAudio || {
         else el.innerText = s;
     }
 
-    function verdictText(g, hasState) {
-        if (!hasState) return 'BỎ TRỐNG — TÍNH LÀ SAI';
-        return g.overall ? 'CHÍNH XÁC' : 'CHƯA CHÍNH XÁC';
-    }
-
     /* ---------------- FRONT ---------------- */
 
     var keydownHandler = null;
@@ -719,24 +710,20 @@ window.AnkiAudio = window.AnkiAudio || {
         if (bar) {
             setText(bar, 'Đã trả lời ' + answerCount(answers) + '/' + total);
         }
+        /* Beta: KIEM TRA luôn bấm được kể cả chưa chọn đủ — chỉ giữ
+           progress text, không gate disabled. */
         var btn = $('tf-submit');
-        if (btn) {
-            if (answerCount(answers) >= total && total > 0) {
-                btn.removeAttribute('disabled');
-            } else {
-                btn.setAttribute('disabled', 'disabled');
-            }
+        if (btn && btn.hasAttribute && btn.hasAttribute('disabled')) {
+            btn.removeAttribute('disabled');
         }
     }
 
     function paintRow(row, val) {
         var halves = row.querySelectorAll
             ? row.querySelectorAll('.tf-half') : [];
-        var i, h, on;
+        var i, h;
         for (i = 0; i < halves.length; i++) {
             h = halves[i];
-            on = (h.getAttribute('data-val') === 'true') === (val === true) ||
-                 (h.getAttribute('data-val') === 'false') === (val === false);
             var isThis = (val !== null && val !== undefined) &&
                 ((val === true && h.getAttribute('data-val') === 'true') ||
                  (val === false && h.getAttribute('data-val') === 'false'));
@@ -757,15 +744,16 @@ window.AnkiAudio = window.AnkiAudio || {
         }
     }
 
-    function buildFrontRow(item, answers, onPick) {
+    function buildFrontRow(item, rowPos, answers, onPick) {
         var row = document.createElement('div');
-        row.className = 'tf-row';
+        row.className = 'tf-row glass-pseudo';
         row.setAttribute('data-orig', String(item.origIndex));
+        row.setAttribute('data-pos', String(rowPos));
         row.setAttribute('tabindex', '0');
 
         var badge = document.createElement('span');
         badge.className = 'tf-badge';
-        setText(badge, String(item.origIndex + 1));
+        setText(badge, String(rowPos + 1));
         row.appendChild(badge);
 
         var text = document.createElement('span');
@@ -776,7 +764,7 @@ window.AnkiAudio = window.AnkiAudio || {
         var halves = document.createElement('div');
         halves.className = 'tf-halves';
         halves.setAttribute('role', 'radiogroup');
-        halves.setAttribute('aria-label', 'Câu ' + (item.origIndex + 1));
+        halves.setAttribute('aria-label', 'Câu ' + (rowPos + 1));
 
         var bt = document.createElement('button');
         bt.type = 'button';
@@ -841,23 +829,39 @@ window.AnkiAudio = window.AnkiAudio || {
         }
 
         for (i = 0; i < order.length; i++) {
-            container.appendChild(buildFrontRow(byOrig[order[i]], answers, onPick));
+            container.appendChild(buildFrontRow(byOrig[order[i]], i, answers, onPick));
         }
         refreshProgress(container, answers, items.length);
-        wireSubmit(items, order, answers, parsed.question);
-        wireKeys(container, items, order, answers);
+        function submitNow(force) {
+            if (window.__hnaTFAnswered) return false;
+            if (!force && answerCount(answers) < items.length) return false;
+            window.__hnaTFAnswered = true;
+            var now = Date.now();
+            saveState({
+                v: 1, sig: computationSig(parsed.question, items),
+                order: order.slice(), answers: copyAnswers(answers),
+                submittedAt: now, expiresAt: now + TF_TTL_MS
+            });
+            try {
+                if (typeof pycmd === 'function') pycmd('ans');
+            } catch (e) {}
+            return true;
+        }
+        wireSubmit(items, order, answers, parsed.question, submitNow);
+        wireKeys(container, items, order, answers, submitNow);
         markReady();
     }
 
-    function wireSubmit(items, order, answers, question) {
+    function wireSubmit(items, order, answers, question, submitFn) {
         var btn = $('tf-submit');
         if (!btn) return;
         var fresh = btn.cloneNode(false);
         setText(fresh, 'KIỂM TRA');
         if (btn.parentNode) btn.parentNode.replaceChild(fresh, btn);
         fresh.addEventListener('click', function () {
+            /* Beta: KIEM TRA luôn submit được kể cả chưa chọn đủ. */
+            if (typeof submitFn === 'function') { submitFn(true); return; }
             if (window.__hnaTFAnswered) return;
-            if (answerCount(answers) < items.length) return;
             window.__hnaTFAnswered = true;
             var now = Date.now();
             saveState({
@@ -889,7 +893,7 @@ window.AnkiAudio = window.AnkiAudio || {
         try { rows[idx].focus(); } catch (e) {}
     }
 
-    function wireKeys(container, items, order, answers) {
+    function wireKeys(container, items, order, answers, submitFn) {
         keydownHandler = function (e) {
             if (!e || e.isComposing) return;
             if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -898,6 +902,12 @@ window.AnkiAudio = window.AnkiAudio || {
                     tgt.tagName === 'SELECT' || tgt.isContentEditable)) return;
             var k = (e.key || '');
             var code = e.code || '';
+            if (k === 'Enter' || code === 'Enter' || code === 'NumpadEnter') {
+                if (typeof submitFn === 'function') submitFn(true);
+                e.preventDefault();
+                if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+                return;
+            }
             var rows = container.querySelectorAll
                 ? container.querySelectorAll('.tf-row') : [];
             if (!rows.length) return;
@@ -970,17 +980,47 @@ window.AnkiAudio = window.AnkiAudio || {
 
     /* ---------------- BACK ---------------- */
 
-    function truthLabel(t) { return t ? 'ĐÚNG' : 'SAI'; }
+    function verdictText(g, hasState, order) {
+        var i, all;
+        if (!hasState) {
+            all = [];
+            for (i = 0; i < g.total; i++) all.push(String(i + 1));
+            return '✗ BỎ TRỐNG — TÍNH LÀ SAI ' + all.join(',');
+        }
+        if (g.overall) return '✓ CHÍNH XÁC';
+        return '✗ CHƯA CHÍNH XÁC ' + missPositions(g, order).join(',');
+    }
 
-    function buildBackRow(item, chosen) {
+    function missPositions(g, order) {
+        var map = {}, i, rp;
+        var pos = [];
+        if (order) {
+            for (i = 0; i < order.length; i++) map[order[i]] = i;
+        }
+        for (i = 0; i < g.results.length; i++) {
+            if (g.results[i].state !== 'correct') {
+                if (order && map.hasOwnProperty(g.results[i].origIndex)) {
+                    rp = map[g.results[i].origIndex] + 1;
+                } else {
+                    rp = i + 1;
+                }
+                pos.push(rp);
+            }
+        }
+        pos.sort(function (a, b) { return a - b; });
+        return pos;
+    }
+
+    function buildBackRow(item, rowPos, chosen) {
         var row = document.createElement('div');
-        row.className = 'tf-row is-static';
+        row.className = 'tf-row glass-pseudo is-static';
         row.setAttribute('data-orig', String(item.origIndex));
+        row.setAttribute('data-pos', String(rowPos));
         if (chosen === null || chosen === undefined) row.classList.add('is-skipped');
 
         var badge = document.createElement('span');
         badge.className = 'tf-badge';
-        setText(badge, String(item.origIndex + 1));
+        setText(badge, String(rowPos + 1));
         row.appendChild(badge);
 
         var text = document.createElement('span');
@@ -1027,10 +1067,8 @@ window.AnkiAudio = window.AnkiAudio || {
         var parsed = readItems();
         var container = $('tf-rows-container');
         var verdictBox = $('tf-verdict-container');
-        var missBox = $('tf-miss-list');
         if (!container) return;
         while (container.firstChild) container.removeChild(container.firstChild);
-        if (missBox) while (missBox.firstChild) missBox.removeChild(missBox.firstChild);
         if (verdictBox) while (verdictBox.firstChild) verdictBox.removeChild(verdictBox.firstChild);
         if (parsed.invalid || parsed.items.length === 0) {
             try {
@@ -1053,32 +1091,14 @@ window.AnkiAudio = window.AnkiAudio || {
             var it = byOrig[order[i]];
             var key = String(it.origIndex);
             var chosen = answers.hasOwnProperty(key) ? answers[key] : null;
-            container.appendChild(buildBackRow(it, chosen));
+            container.appendChild(buildBackRow(it, i, chosen));
         }
         if (verdictBox) {
             var banner = document.createElement('div');
             banner.className = 'verdict-banner ' +
                 ((!hasState || !g.overall) ? 'wrong' : 'correct');
-            setText(banner, verdictText(g, hasState) +
-                ' — ' + g.correct + '/' + g.total);
+            setText(banner, verdictText(g, hasState, order));
             verdictBox.appendChild(banner);
-        }
-        if (missBox && g.wrongList.length > 0) {
-            var head = document.createElement('div');
-            head.className = 'tf-miss-head';
-            setText(head, 'CÁC CÂU SAI (theo thứ tự đề)');
-            missBox.appendChild(head);
-            for (i = 0; i < g.wrongList.length; i++) {
-                var w = g.wrongList[i];
-                var line = document.createElement('div');
-                line.className = 'tf-miss-item';
-                var tail = (w.chosen === null || w.chosen === undefined)
-                    ? 'chưa trả lời'
-                    : 'bạn chọn ' + truthLabel(w.chosen);
-                setText(line, 'Câu ' + (w.origIndex + 1) + ': đáp án ' +
-                    truthLabel(w.truth) + ' — ' + tail);
-                missBox.appendChild(line);
-            }
         }
         try {
             if (window.AnkiAudio && typeof window.AnkiAudio.playTone === 'function') {
@@ -1104,6 +1124,8 @@ window.AnkiAudio = window.AnkiAudio || {
         loadState: loadState,
         clearState: clearState,
         grade: grade,
+        verdictText: verdictText,
+        missPositions: missPositions,
         markReady: markReady,
         initFront: initFront,
         initBack: initBack,

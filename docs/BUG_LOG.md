@@ -1177,6 +1177,44 @@ should be appended here with a date.
   nested button`, and the extended `.hna-audio-source` CSS contract
   assertions.
 
+### BUG-059 — TF back mixed de numbers with shuffled rows; dim answers, loud banner, separate miss list
+- **Date**: 2026-10-25
+- **Files**: `tf/_tf_logic.js`, `tf/_tf_styles.css`, `tf/Back.html`,
+  `tests/unit/tf.test.js`, `tests/unit/tf.integration.test.js`,
+  `tf/docs/README.md`, `ARCHITECTURE.md`
+- **Symptom**: three related complaints on the TF beta card —
+  (1) with row shuffle on, the badge carried the original đề number while the
+  row sat elsewhere, so the learner saw mismatched numbers; (2) statement
+  text and the ĐÚNG/SAI labels rendered dim (`.tf-row` at 0.55 alpha,
+  `.tf-half` in `text-secondary`, `is-dimmed` at 0.55 opacity); (3) the back
+  showed a banner plus `x/4` plus a separate miss list in đề order, i.e. three
+  places to read one verdict.
+- **Root cause**: (1) `buildFrontRow`/`buildBackRow` badged by
+  `item.origIndex + 1` while `initFront`/`initBack` permuted whole rows by
+  `st.order`; (2) low-alpha glass recipe plus secondary text plus
+  opacity-based dim states; (3) verdict text with an `x/N` suffix plus a
+  separately built `#tf-miss-list`.
+- **Fix**: the only number the learner sees is the row position —
+  badge/`aria-label` use `rowPos + 1`, `data-pos` keeps 0-based `rowPos`, `data-orig` keeps the de
+  index, `answers` stays keyed by de index (no schema change). New pure
+  helpers `missPositions(g, order)` (de index → row position, ascending) and
+  `verdictText(g, hasState, order)` produce exactly `✓ CHÍNH XÁC`,
+  `✗ CHƯA CHÍNH XÁC 1,2,3` or `✗ BỎ TRỐNG — TÍNH LÀ SAI 1,2,3,4`; the `x/N`
+  suffix, the miss-list builder and `#tf-miss-list` (Back.html) are gone.
+  Rows gain the `glass-pseudo` recipe, `.tf-row` alpha 0.55→0.78
+  (night 0.75→0.85), `.tf-half` moves to `text-primary` with a stronger
+  divider, `is-true`/`is-false` gain background alpha plus a 1px border,
+  `is-dimmed` drops opacity for `text-muted` on a light wash and `is-skipped`
+  drops opacity for a dashed rail plus muted badge. No new tokens, no
+  `!important`/`filter`.
+- **Regression guard**: `tests/unit/tf.test.js` — `missPositions` via
+  `order=[2,0,3,1]` (wrong at de 0 → row 2), a 3-statement case, and the
+  exact verdict strings; `tests/unit/tf.integration.test.js` — positional
+  badges + `data-orig` permutation on front and shuffled front, back order
+  matching front with `verdict === '✗ CHƯA CHÍNH XÁC 2'`, no `x/N`, no
+  `#tf-miss-list`/`.tf-miss-item`, all-correct `CHÍNH XÁC` without `4/4`,
+  no-state `BỎ TRỐNG` with `1,2,3,4`.
+
 ## Open / latent issues
 
 ### ISSUE-001 — `window.__hnaIsTypingTimer` cleared only in typing module

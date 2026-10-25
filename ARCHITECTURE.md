@@ -6,7 +6,7 @@ This project contains three Anki note types for language learning:
 
 1. **Typing (HNA)** - Character-by-character typing with real-time feedback
 2. **Multiple Choice (MCQ)** - Question with 2-4 shuffled answer options
-3. **True-False (TF, beta)** - Four ĐÚNG/SAI statement rows, gated flip, partial x/N grading
+3. **True-False (TF, beta)** - Four ĐÚNG/SAI statement rows, gated flip, positional verdict grading
 
 All note types share common infrastructure (engine, storage, aurora, design-system CSS prefix) but have separate logic modules.
 
@@ -157,9 +157,12 @@ Generated files must never be edited directly; changes to source files require r
 - **Key functions:**
   - `normalizeTruth()` - Map T/TRUE/1/D/Đ/ĐÚNG/Y/YES/+ → true, F/FALSE/0/S/SAI/N/NO/- → false, empty → null (skip), unknown → 'invalid' (fail-closed)
   - `readItems()` - Read the four statement slots (skips empty, rejects unknown tokens)
-  - `shuffleOrder()` - Fisher-Yates over the row order only (badges stay de numbers)
+  - `shuffleOrder()` - Fisher-Yates over the row order only (badges stay row positions, `data-orig` keeps the de index)
   - `computationSig()` / `saveState()` / `loadState()` / `clearState()` - Front→Back state transition (`hna-tf-state`, 5-minute TTL)
   - `grade()` - Exact match per statement; overall only when all correct
+  - `verdictText()` / `missPositions()` - Back banner from row positions
+    (`✓ CHÍNH XÁC`, `✗ CHƯA CHÍNH XÁC 1,2`, `✗ BỎ TRỐNG — TÍNH LÀ SAI 1,2,3,4`;
+    no `x/N`, no miss list; `answers` stays keyed by de index)
   - `initFront()` / `initBack()` / `destroyFront()` / `markReady()`
 - **Note:** Invalid or empty items never mark `html.tf-ready` (static fallback stays)
 

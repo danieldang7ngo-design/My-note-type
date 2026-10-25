@@ -26,31 +26,29 @@
 
 .tf-rows { display: flex; flex-direction: column; gap: var(--s-2_5); width: 100%; position: relative; z-index: 10; }
 
-.tf-row { position: relative; isolation: isolate; display: flex; align-items: stretch; gap: 0; width: 100%; min-height: 48px; padding: 0; margin: 0; border: none; background: transparent; font-family: var(--font-ui); font-size: inherit; border-radius: var(--radius-md); text-align: left; box-shadow: 0 1px 2px rgba(var(--shadow-ink-rgb), 0.05), 0 4px 12px -8px rgba(var(--shadow-ink-rgb), 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.12); --surface-transparency-alpha: 0.55; --glass-mesh-opacity: 0.3; --glass-sheen-alpha: 0.2; --glass-edge-alpha: 0.3; }
-.night-mode .tf-row { --surface-transparency-alpha: 0.75; --glass-foot: 0.2; }
+.tf-row { position: relative; isolation: isolate; display: flex; align-items: stretch; gap: 0; width: 100%; min-height: 48px; padding: 0; margin: 0; border: none; background: transparent; font-family: var(--font-ui); font-size: inherit; border-radius: var(--radius-md); text-align: left; box-shadow: 0 1px 2px rgba(var(--shadow-ink-rgb), 0.05), 0 4px 12px -8px rgba(var(--shadow-ink-rgb), 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.12); --surface-transparency-alpha: 0.78; --glass-mesh-opacity: 0.3; --glass-sheen-alpha: 0.2; --glass-edge-alpha: 0.3; }
+.night-mode .tf-row { --surface-transparency-alpha: 0.85; --glass-foot: 0.2; }
 .tf-row:focus-visible { outline: 2px solid var(--aurora-accent); outline-offset: 2px; border-radius: var(--radius-sm); }
 .tf-badge { flex: 0 0 38px; display: flex; align-items: center; justify-content: center; align-self: stretch; font-family: var(--font-mono); font-size: var(--fs-base); font-weight: 600; color: var(--text-primary); background: rgba(var(--shadow-ink-rgb), 0.04); border-right: 1px solid rgba(var(--shadow-ink-rgb), 0.06); border-radius: var(--radius-md) 0 0 var(--radius-md); }
 .night-mode .tf-badge { background: rgba(255, 255, 255, 0.04); border-right: 1px solid rgba(255, 255, 255, 0.06); }
 .tf-text { flex: 1 1 auto; padding: var(--s-2) var(--s-3); font-family: var(--font-ui); font-size: var(--fs-md); font-weight: 500; line-height: 1.4; color: var(--text-primary); display: flex; align-items: center; word-break: break-word; overflow-wrap: anywhere; white-space: normal; }
 .tf-halves { flex: 0 0 auto; display: flex; align-items: stretch; margin-left: auto; }
-.tf-half { flex: 1 1 0; min-width: 76px; display: flex; align-items: center; justify-content: center; padding: var(--s-2) var(--s-3); font-family: var(--font-ui); font-size: var(--fs-sm); font-weight: 700; letter-spacing: 0.04em; color: var(--text-secondary); background: transparent; border: none; border-left: 1px solid rgba(var(--shadow-ink-rgb), 0.08); cursor: pointer; -webkit-tap-highlight-color: transparent; transition: transform 150ms cubic-bezier(.3, .9, .2, 1), box-shadow 150ms cubic-bezier(.3, .9, .2, 1), background 150ms cubic-bezier(.3, .9, .2, 1); }
+.tf-half { flex: 1 1 0; min-width: 76px; display: flex; align-items: center; justify-content: center; padding: var(--s-2) var(--s-3); font-family: var(--font-ui); font-size: var(--fs-sm); font-weight: 700; letter-spacing: 0.04em; color: var(--text-primary); background: transparent; border: none; border-left: 1px solid rgba(var(--shadow-ink-rgb), 0.16); cursor: pointer; -webkit-tap-highlight-color: transparent; transition: transform 150ms cubic-bezier(.3, .9, .2, 1), box-shadow 150ms cubic-bezier(.3, .9, .2, 1), background 150ms cubic-bezier(.3, .9, .2, 1); }
 .tf-half:last-child { border-radius: 0 var(--radius-md) var(--radius-md) 0; }
 button.tf-half:hover { transform: translateY(-1px); background: rgba(var(--aurora-1-rgb), 0.10); }
 button.tf-half:focus-visible { outline: 2px solid var(--aurora-accent); outline-offset: -2px; }
-.tf-half.is-true { background: rgba(var(--aurora-1-rgb), 0.22); color: var(--diff-correct-text); box-shadow: inset 0 0 0 1px var(--diff-correct-border); }
-.tf-half.is-false { background: rgba(var(--blob-d-rgb), 0.16); color: var(--diff-wrong-text); box-shadow: inset 0 0 0 1px var(--diff-wrong-border); }
+.tf-half.is-true { background: rgba(var(--aurora-1-rgb), 0.30); color: var(--diff-correct-text); box-shadow: inset 0 0 0 1px var(--diff-correct-border); border: 1px solid var(--diff-correct-border); }
+.tf-half.is-false { background: rgba(var(--blob-d-rgb), 0.10); color: var(--diff-wrong-text); box-shadow: inset 0 0 0 1px var(--diff-wrong-border); border: 1px solid var(--diff-wrong-border); }
 .tf-row.is-static .tf-half { cursor: default; }
 .tf-half.is-correct { border: 1px solid var(--diff-correct-border); background: rgba(var(--aurora-1-rgb), 0.12); color: var(--diff-correct-text); font-weight: 700; }
-.tf-half.is-wrong { border: 1px solid var(--diff-wrong-border); background: rgba(var(--blob-d-rgb), 0.08); color: var(--diff-wrong-text); font-weight: 700; }
-.tf-half.is-dimmed { opacity: 0.55; }
-.tf-row.is-skipped { opacity: 0.85; }
+.tf-half.is-wrong { border: 1px solid var(--diff-wrong-border); background: rgba(var(--blob-d-rgb), 0.05); color: var(--diff-wrong-text); font-weight: 700; }
+.tf-half.is-dimmed { color: var(--text-secondary); background: rgba(var(--shadow-ink-rgb), 0.04); }
+.tf-row.is-skipped { border-left: 3px dashed var(--border-default); }
+.tf-row.is-skipped .tf-badge { color: var(--text-muted); }
 .tf-progress { width: 100%; text-align: center; font-family: var(--font-mono); font-size: var(--fs-2xs); color: var(--text-secondary); letter-spacing: 0.04em; }
 .tf-submit { display: block; width: 100%; min-height: 48px; margin: var(--s-1) 0 0; padding: var(--s-2) var(--s-3); border-radius: var(--radius-md); border: 1px solid var(--border-accent); background: var(--surface-elevated); color: var(--accent-color); font-family: var(--font-ui); font-size: var(--fs-md); font-weight: 700; letter-spacing: 0.06em; cursor: pointer; transition: transform 150ms cubic-bezier(.3, .9, .2, 1), box-shadow 150ms cubic-bezier(.3, .9, .2, 1), opacity 150ms ease; }
 .tf-submit:hover:not([disabled]) { transform: translateY(-2px); box-shadow: var(--shadow-md); }
 .tf-submit[disabled] { opacity: 0.45; cursor: not-allowed; }
-.tf-miss-list { display: flex; flex-direction: column; gap: var(--s-1_5); width: 100%; }
-.tf-miss-head { font-family: var(--font-ui); font-size: var(--fs-2xs); font-weight: 700; letter-spacing: 0.14em; color: var(--text-secondary); }
-.tf-miss-item { font-size: var(--fs-sm); color: var(--text-primary); padding: var(--s-1_5) var(--s-2_5); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: var(--surface-card); }
 
 /* Explanation plate borrows the option-button glass so the GIẢI
    THÍCH CHI TIẾT surface reads as the same panel as the answers. */
@@ -65,7 +63,7 @@ button.tf-half:focus-visible { outline: 2px solid var(--aurora-accent); outline-
 .tf-verdict-container { width: 100%; display: flex; justify-content: center; }
 .verdict-banner { padding: var(--s-1_5) var(--s-3); border-radius: var(--radius-sm); font-size: var(--fs-sm); font-weight: 700; letter-spacing: 0.02em; }
 .verdict-banner.correct { color: var(--diff-correct-text); background: rgba(var(--aurora-1-rgb), 0.15); border: 1px solid var(--diff-correct-border); }
-.verdict-banner.wrong { color: var(--diff-wrong-text); background: rgba(var(--blob-d-rgb), 0.15); border: 1px solid var(--diff-wrong-border); }
+.verdict-banner.wrong { color: var(--diff-wrong-text); background: rgba(var(--blob-d-rgb), 0.08); border: 1px solid var(--diff-wrong-border); }
 .verdict-banner.neutral { color: var(--text-secondary); background: var(--surface-card); border: 1px solid var(--border-subtle); }
 
 @media (max-width: 480px) {

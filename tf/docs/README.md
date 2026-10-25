@@ -15,7 +15,7 @@ You **must** use exactly these fields (plus any optional tags):
 
 - Each statement row has two halves: **ĐÚNG** (left) / **SAI** (right), exposed as radio buttons.
 - The **KIỂM TRA** button stays disabled until every statement is answered; re-clicking the same side keeps the answer, the other side switches.
-- The back re-renders the stored row order, flags the correct side with ✓, a wrong pick with ✗, and lists misses in đề order (`Câu 2: đáp án SAI — bạn chọn ĐÚNG`); unanswered rows say `chưa trả lời`.
+- The back re-renders the stored row order with positional badges, flags the correct side with ✓, a wrong pick with ✗, and shows one banner: `✓ CHÍNH XÁC` when all correct, `✗ CHƯA CHÍNH XÁC 1,2,3` naming the wrong row positions otherwise, `✗ BỎ TRỐNG — TÍNH LÀ SAI 1,2,3,4` when there is no stored state. There is no miss list and no `x/4` score.
 - Keyboard on the front: `1`–`4` focus a row, `T`/`F` answer it, arrows move. Modifiers, editable targets, composing and `Space` are ignored.
 
 ## Setup in Anki

@@ -123,11 +123,51 @@ module.exports = [
     }
   },
   {
-    name: 'tfLogic: wrongList is sorted by origIndex (de order)',
+    name: 'tfLogic: missPositions maps(origIndex->rowPos) via order, sorted ascending',
     fn: function () {
-      var g = AnkiTF.grade(sampleItems(), { 3: true, 0: false });
-      var order = g.wrongList.map(function (w) { return w.origIndex; });
-      assert.deepStrictEqual(order, [0, 1, 2, 3], 'wrongList must follow de order, got ' + order.join(','));
+      // order=[2,0,3,1]: orig2->row1, orig0->row2, orig3->row3, orig1->row4.
+      // Sai o origIndex 0 => so vi tri hang 2 (acceptance 4).
+      var g2 = AnkiTF.grade(sampleItems(), { 0: false, 1: false, 2: true, 3: false });
+      assert.deepStrictEqual(AnkiTF.missPositions(g2, [2, 0, 3, 1]), [2],
+        'wrong at origIndex 0 must report row position 2');
+      // Only orig3 skipped -> row 3.
+      var g3 = AnkiTF.grade(sampleItems(), { 0: true, 1: false, 2: true });
+      assert.deepStrictEqual(AnkiTF.missPositions(g3, [2, 0, 3, 1]), [3],
+        'skipped origIndex 3 must report row position 3');
+      // Two misses land sorted ascending by row position.
+      var g4 = AnkiTF.grade(sampleItems(), { 0: true, 1: true, 2: true, 3: true });
+      assert.deepStrictEqual(AnkiTF.missPositions(g4, [2, 0, 3, 1]), [3, 4],
+        'orig1->row4 and orig3->row3 must sort as [3,4]');
+    }
+  },
+  {
+    name: 'tfLogic: missPositions works with three statements',
+    fn: function () {
+      var items3 = [
+        { origIndex: 0, text: 'Mot', truth: true },
+        { origIndex: 1, text: 'Hai', truth: false },
+        { origIndex: 2, text: 'Ba', truth: true }
+      ];
+      var g = AnkiTF.grade(items3, { 0: true, 1: true });
+      // orig1 wrong (truth false, chose true), orig2 skipped.
+      // identity order -> positions 2 and 3.
+      assert.deepStrictEqual(AnkiTF.missPositions(g, [0, 1, 2]), [2, 3]);
+      assert.strictEqual(
+        AnkiTF.verdictText(g, true, [0, 1, 2]),
+        '✗ CHƯA CHÍNH XÁC 2,3');
+    }
+  },
+  {
+    name: 'tfLogic: verdictText matches the badge contract exactly',
+    fn: function () {
+      var full = AnkiTF.grade(sampleItems(), { 0: true, 1: false, 2: true, 3: false });
+      assert.strictEqual(AnkiTF.verdictText(full, true, [0, 1, 2, 3]), '✓ CHÍNH XÁC');
+      var oneWrong = AnkiTF.grade(sampleItems(), { 0: true, 1: true, 2: true, 3: false });
+      assert.strictEqual(AnkiTF.verdictText(oneWrong, true, [0, 1, 2, 3]),
+        '✗ CHƯA CHÍNH XÁC 2');
+      var none = AnkiTF.grade(sampleItems(), {});
+      assert.strictEqual(AnkiTF.verdictText(none, false, [0, 1, 2, 3]),
+        '✗ BỎ TRỐNG — TÍNH LÀ SAI 1,2,3,4');
     }
   },
   {
@@ -215,6 +255,14 @@ module.exports = [
       assert.strictEqual(global.window.__hnaTFState, null, 'initFront must clear in-memory state');
       assert.strictEqual(global.sessionStorage.getItem('hna-tf-state'), null,
         'initFront must clear sessionStorage state');
+    }
+  },
+  {
+    name: 'tfLogic: Back.html must not re-add the removed miss-list container',
+    fn: function () {
+      var fs = require('fs');
+      var template = fs.readFileSync(require('path').join(__dirname, '../../tf/Back.html'), 'utf8');
+      assert(template.indexOf('tf-miss-list') === -1, 'Back.html must not contain tf-miss-list');
     }
   }
 ];
